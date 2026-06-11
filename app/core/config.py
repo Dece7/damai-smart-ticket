@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     # ChromaDB
     chroma_persist_dir: str = "./chroma_db"
 
+    # Reranker
+    reranker_model: str = "ms-marco-TinyBERT-L-2-v2"
+    reranker_top_n: int = 5
+    reranker_candidate_count: int = 20
+
     @property
     def mysql_url(self) -> str:
         return (

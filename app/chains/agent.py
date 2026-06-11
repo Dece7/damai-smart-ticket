@@ -16,11 +16,16 @@ from app.core.prompts import SYSTEM_PROMPT_ASSISTANT
 from app.chains.tools import (
     search_program, get_program_detail, get_ticket_info,
     create_order, search_knowledge_base,
+    query_ticket_status, check_order_status, calculate_price, get_recommendations,
 )
 
 logger = logging.getLogger(__name__)
 
-ALL_TOOLS = [search_program, get_program_detail, get_ticket_info, create_order, search_knowledge_base]
+ALL_TOOLS = [
+    search_program, get_program_detail, get_ticket_info, create_order,
+    search_knowledge_base, query_ticket_status, check_order_status,
+    calculate_price, get_recommendations,
+]
 TOOLS_MAP = {t.name: t for t in ALL_TOOLS}
 
 
@@ -57,15 +62,18 @@ async def run_agent(message: str, history: list[dict] | None = None):
 
     total_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
     step_num = 0
+    inside_tool = False  # 标记是否在工具执行期间
 
     try:
         async for event in agent.astream_events({"messages": messages}, version="v2"):
             kind = event.get("event", "")
 
             if kind == "on_chat_model_stream":
-                content = event["data"]["chunk"].content
-                if content:
-                    yield f'data: {json.dumps({"type": "token", "content": content}, ensure_ascii=False)}\n\n'
+                # 工具执行期间的 LLM 流式事件（如 rewrite_query）不推送给前端
+                if not inside_tool:
+                    content = event["data"]["chunk"].content
+                    if content:
+                        yield f'data: {json.dumps({"type": "token", "content": content}, ensure_ascii=False)}\n\n'
 
             elif kind == "on_chat_model_end":
                 output = event["data"].get("output")
@@ -86,28 +94,42 @@ async def run_agent(message: str, history: list[dict] | None = None):
                         yield f'data: {json.dumps({"type": "step", "step": step_num, "action": "reasoning", "content": f"分析意图，选择工具: {tool_name}({args_str})"}, ensure_ascii=False)}\n\n'
 
             elif kind == "on_tool_start":
+                inside_tool = True
                 tool_name = event.get("name", "")
                 yield f'data: {json.dumps({"type": "step", "step": step_num, "action": "tool_start", "tool": tool_name, "content": f"执行工具: {tool_name}"}, ensure_ascii=False)}\n\n'
 
             elif kind == "on_tool_end":
+                inside_tool = False
                 tool_name = event.get("name", "")
                 output = event["data"].get("output", "")
 
-                # RAG 工具返回时，提取引用来源
+                # RAG 工具返回时，从返回文本中提取引用来源
                 if tool_name == "search_knowledge_base":
-                    from pathlib import Path
                     try:
-                        text = output if isinstance(output, str) else str(output)
-                        from app.pipelines.document_pipeline import load_vectorstore
-                        vs = load_vectorstore()
-                        docs = vs.similarity_search(text[:200], k=3)
+                        # 处理不同类型的 output
+                        if hasattr(output, "content"):
+                            text = output.content
+                        elif isinstance(output, str):
+                            text = output
+                        else:
+                            text = str(output)
+
                         sources = []
                         seen = set()
-                        for doc in docs:
-                            src = Path(doc.metadata.get("source", "")).stem
-                            if src and src not in seen:
-                                seen.add(src)
-                                sources.append({"doc": src, "excerpt": doc.page_content[:100]})
+                        lines = text.split("\n")
+                        for i, line in enumerate(lines):
+                            line = line.strip()
+                            if line.startswith("[来源：") and line.endswith("]"):
+                                src = line[4:-1]  # 提取 "来源：xxx" 中的 xxx
+                                if src and src not in seen:
+                                    seen.add(src)
+                                    # 取来源标记后面的内容作为摘要
+                                    excerpt = ""
+                                    for j in range(i+1, min(i+3, len(lines))):
+                                        if lines[j].strip() and not lines[j].strip().startswith("[来源："):
+                                            excerpt = lines[j].strip()[:100]
+                                            break
+                                    sources.append({"doc": src, "excerpt": excerpt})
                         if sources:
                             yield f'data: {json.dumps({"type": "sources", "content": sources}, ensure_ascii=False)}\n\n'
                     except Exception as e:

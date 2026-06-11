@@ -5,12 +5,19 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, ToolMessage
 from app.core.config import get_settings
 from app.core.prompts import SYSTEM_PROMPT_ASSISTANT
-from app.chains.tools import search_program, get_program_detail, get_ticket_info, create_order
+from app.chains.tools import (
+    search_program, get_program_detail, get_ticket_info, create_order, search_knowledge_base,
+    query_ticket_status, check_order_status, calculate_price, get_recommendations,
+)
 from app.services.memory_service import memory_service
 
 logger = logging.getLogger(__name__)
 
-TOOLS = [search_program, get_program_detail, get_ticket_info, create_order]
+TOOLS = [
+    search_program, get_program_detail, get_ticket_info, create_order,
+    search_knowledge_base, query_ticket_status, check_order_status,
+    calculate_price, get_recommendations,
+]
 TOOLS_MAP = {t.name: t for t in TOOLS}
 
 MAX_TOOL_ROUNDS = 5
@@ -70,13 +77,19 @@ class ChatService:
 
     async def _rag_chat(self, message: str):
         """RAG 模式：混合检索知识库 + 生成回答"""
-        from app.pipelines.rag_pipeline import get_rag_chain, get_hybrid_retriever
+        from app.pipelines.rag_pipeline import (
+            get_rag_chain, get_hybrid_retriever, rewrite_query, format_docs_with_source,
+        )
 
-        chain, retriever, llm = get_rag_chain()
+        chain, llm = get_rag_chain()
         hybrid_retrieve = get_hybrid_retriever()
 
-        # 混合检索（BM25 + 向量）
-        docs = hybrid_retrieve(message)
+        # 查询改写 + 混合检索（BM25 + 向量）
+        rewritten = rewrite_query(message)
+        if rewritten != message:
+            yield {"type": "step", "step": 1, "action": "reasoning",
+                   "content": f"查询改写：「{message}」→「{rewritten}」"}
+        docs = hybrid_retrieve(rewritten, original_query=message)
         sources = []
         seen = set()
         for doc in docs:
@@ -87,9 +100,13 @@ class ChatService:
         if sources:
             yield {"type": "sources", "content": sources}
 
+        # 用改写后的查询 + 检索到的文档生成回答
+        context = format_docs_with_source(docs)
+        chain_input = {"context": context, "question": rewritten}
+
         # 流式生成
         full_response = ""
-        async for chunk in chain.astream(message):
+        async for chunk in chain.astream(chain_input):
             if chunk:
                 full_response += chunk
                 yield {"type": "token", "content": chunk}
@@ -122,9 +139,10 @@ class ChatService:
                 messages.append(AIMessage(content=h["content"]))
 
         total_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+        step_num = 0
 
-        # 多轮工具调用
-        for _ in range(MAX_TOOL_ROUNDS):
+        # 多轮工具调用（最多 MAX_TOOL_ROUNDS 轮）
+        for round_idx in range(MAX_TOOL_ROUNDS):
             response = await self.llm.ainvoke(messages)
             messages.append(response)
 
@@ -135,22 +153,57 @@ class ChatService:
                 total_usage["completion_tokens"] += u.get("output_tokens", 0)
                 total_usage["total_tokens"] += u.get("total_tokens", 0)
 
+            # 如果没有工具调用，说明 LLM 要直接回答
             if not response.tool_calls:
                 break
 
-            tool_names = [tc["name"] for tc in response.tool_calls]
-            tools_str = ", ".join(tool_names)
-            yield {"type": "thinking", "content": f"正在调用工具: {tools_str}"}
-
+            # 执行工具调用
             for tool_call in response.tool_calls:
-                tool_func = TOOLS_MAP.get(tool_call["name"])
+                step_num += 1
+                tool_name = tool_call["name"]
+                args_str = json.dumps(tool_call["args"], ensure_ascii=False)
+                if len(args_str) > 100:
+                    args_str = args_str[:100] + "..."
+                yield {"type": "step", "step": step_num, "action": "reasoning", "content": f"分析意图，选择工具: {tool_name}({args_str})"}
+
+                tool_func = TOOLS_MAP.get(tool_name)
                 if tool_func:
+                    yield {"type": "step", "step": step_num, "action": "tool_start", "tool": tool_name, "content": f"执行工具: {tool_name}"}
                     result = tool_func.invoke(tool_call["args"])
-                    yield {"type": "tool_result", "tool": tool_call["name"], "content": result}
+
+                    # 如果是知识库工具，提取来源
+                    if tool_name == "search_knowledge_base":
+                        text = result if isinstance(result, str) else str(result)
+                        sources = []
+                        seen = set()
+                        lines = text.split("\n")
+                        for i, line in enumerate(lines):
+                            line = line.strip()
+                            if line.startswith("[来源：") and line.endswith("]"):
+                                src = line[4:-1]
+                                if src and src not in seen:
+                                    seen.add(src)
+                                    # 取来源标记后面的内容作为摘要
+                                    excerpt = ""
+                                    for j in range(i+1, min(i+3, len(lines))):
+                                        if lines[j].strip() and not lines[j].strip().startswith("[来源："):
+                                            excerpt = lines[j].strip()[:100]
+                                            break
+                                    sources.append({"doc": src, "excerpt": excerpt})
+                        if sources:
+                            yield {"type": "sources", "content": sources}
+
+                    result_preview = str(result)[:200] + "..." if len(str(result)) > 200 else str(result)
+                    yield {"type": "step", "step": step_num, "action": "tool_end", "tool": tool_name, "content": f"工具返回: {result_preview}"}
                     messages.append(ToolMessage(
                         content=json.dumps(result, ensure_ascii=False),
                         tool_call_id=tool_call["id"],
                     ))
+
+            # 工具调用后，下一轮 LLM 应该生成最终回答
+            # 但为了防止 LLM 一直调用工具不回答，限制最多 2 轮工具调用
+            if step_num >= 2:
+                break
 
         # 流式生成最终回答
         full_response = ""

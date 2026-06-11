@@ -37,3 +37,27 @@ async def agent_chat(request: AgentRequest):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.post("/multi")
+async def multi_agent_chat(request: AgentRequest):
+    """多 Agent 协作对话（Supervisor 模式，SSE 流式）"""
+    message = sanitize_input(request.message)
+    is_inject, reason = check_injection(message)
+    if is_inject:
+        return JSONResponse(
+            status_code=400,
+            content={"detail": f"输入被拒绝：{reason}"},
+        )
+
+    from app.chains.multi_agent import run_multi_agent
+
+    return StreamingResponse(
+        run_multi_agent(message),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
