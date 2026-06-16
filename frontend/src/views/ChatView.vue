@@ -3,6 +3,7 @@ import { ref, nextTick, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useChatStore } from '../stores/chat'
+import { useThemeStore } from '../stores/theme'
 import ChatMessage from '../components/ChatMessage.vue'
 import ReasoningTimeline from '../components/ReasoningTimeline.vue'
 import { marked } from 'marked'
@@ -10,6 +11,7 @@ import type { ChatMode } from '../api/chat'
 
 const router = useRouter()
 const store = useChatStore()
+const theme = useThemeStore()
 
 const input = ref('')
 const msgBox = ref<HTMLElement>()
@@ -90,6 +92,19 @@ async function handleSend() {
 function quickSend(text: string) {
   input.value = text
   handleSend()
+}
+
+function handleRegenerate(index: number) {
+  // 找到这条 AI 消息之前的最近一条用户消息
+  for (let i = index - 1; i >= 0; i--) {
+    if (store.messages[i].role === 'user') {
+      // 删除这条 AI 消息和之后的所有消息
+      store.messages.splice(index)
+      // 重新发送用户消息
+      store.send(store.messages[i].content)
+      return
+    }
+  }
 }
 
 function switchMode(m: ChatMode) {
@@ -263,7 +278,8 @@ onUnmounted(() => {
       </div>
 
       <div class="sidebar-footer">
-        <p>Powered by LangChain + LangGraph</p>
+        <p>{{ theme.mode === 'light' ? '纸质感 · 温暖陪伴' : '夜色静谧 · 智能守护' }}</p>
+        <p class="tech-stack">LangChain + LangGraph</p>
       </div>
     </aside>
 
@@ -313,15 +329,31 @@ onUnmounted(() => {
             <path d="M12 20V10M18 20V4M6 20v-4" />
           </svg>
         </el-button>
+        <button
+          class="theme-toggle"
+          @click="theme.toggle()"
+          :title="theme.mode === 'light' ? '切换到黑夜模式' : '切换到白天模式'"
+        >
+          <svg v-if="theme.mode === 'light'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+          </svg>
+          <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5" />
+            <line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" />
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+            <line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" />
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+          </svg>
+        </button>
       </header>
 
       <!-- 消息区 -->
       <div class="messages" ref="msgBox">
         <!-- 欢迎页 -->
         <div v-if="store.messages.length === 0 && !store.loading" class="welcome">
-          <div class="welcome-icon"> </div>
-          <h2>你好，我是麦小蜜</h2>
-          <p>我可以帮你查询演出信息、购买门票、解答退票政策等问题。试试下面的问题吧：</p>
+          <div class="welcome-icon">{{ theme.mode === 'light' ? ' ' : ' ' }}</div>
+          <h2>{{ theme.mode === 'light' ? '你好，我是麦小蜜' : '夜深了，麦小蜜还在' }}</h2>
+          <p>{{ theme.mode === 'light' ? '温暖的纸质感，陪你聊聊演出和票务。试试下面的问题吧：' : '安静的夜晚，有什么票务问题可以帮你解决？' }}</p>
           <div class="welcome-hints">
             <div
               v-for="h in hints"
@@ -347,6 +379,7 @@ onUnmounted(() => {
             v-for="(m, i) in store.messages"
             :key="i"
             :message="m"
+            @regenerate="handleRegenerate(i)"
           />
         </transition-group>
 
@@ -372,7 +405,7 @@ onUnmounted(() => {
           <el-input
             v-model="input"
             @keyup.enter="handleSend"
-            placeholder="输入你的问题..."
+            :placeholder="theme.mode === 'light' ? '说点什么吧...' : '夜深了，有什么想问的...'"
             :disabled="store.loading"
             size="large"
           >
@@ -418,7 +451,7 @@ onUnmounted(() => {
   width: 280px;
   min-width: 180px;
   max-width: 500px;
-  background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+  background: var(--bg-sidebar);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -446,7 +479,8 @@ onUnmounted(() => {
 
 .resize-handle:hover,
 .resize-handle:global(.active) {
-  background: rgba(233, 69, 96, 0.5);
+  background: var(--color-accent);
+  opacity: 0.5;
 }
 
 .sidebar-header {
@@ -464,23 +498,24 @@ onUnmounted(() => {
 .logo-icon {
   width: 36px;
   height: 36px;
-  background: linear-gradient(135deg, #e94560, #ff6b6b);
+  background: var(--color-primary);
   border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 18px;
+  color: #fff;
 }
 
 .logo-text {
   font-size: 15px;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-inverse);
 }
 
 .logo-sub {
   font-size: 11px;
-  color: #8892b0;
+  color: var(--text-sidebar);
   margin-top: 2px;
 }
 
@@ -494,37 +529,28 @@ onUnmounted(() => {
   padding: 8px 12px;
 }
 
-.chat-list::-webkit-scrollbar {
-  width: 4px;
-}
-
-.chat-list::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-}
-
 .chat-item {
   padding: 10px 14px;
   border-radius: 10px;
   cursor: pointer;
   margin-bottom: 4px;
   font-size: 13px;
-  color: #8892b0;
+  color: var(--text-sidebar);
   display: flex;
   align-items: center;
   gap: 6px;
-  transition: background 0.15s;
+  transition: background 0.15s, color 0.15s;
   position: relative;
 }
 
 .chat-item:hover {
   background: rgba(255, 255, 255, 0.06);
-  color: #ccd6f6;
+  color: var(--text-sidebar-active);
 }
 
 .chat-item.active {
-  background: rgba(233, 69, 96, 0.12);
-  color: #e94560;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
   font-weight: 500;
 }
 
@@ -547,7 +573,7 @@ onUnmounted(() => {
   right: 8px;
   top: 50%;
   transform: translateY(-50%);
-  background: rgba(22, 33, 62, 0.95);
+  background: var(--action-bg);
   border-radius: 6px;
   padding: 2px;
 }
@@ -562,7 +588,7 @@ onUnmounted(() => {
   border-radius: 6px;
   border: none;
   background: transparent;
-  color: #8892b0;
+  color: var(--action-text);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -571,30 +597,30 @@ onUnmounted(() => {
 }
 
 .item-action:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
+  background: var(--action-hover-bg);
+  color: var(--action-hover-text);
 }
 
 .item-action.danger:hover {
   background: rgba(233, 69, 96, 0.2);
-  color: #e94560;
+  color: var(--color-accent);
 }
 
 .rename-input {
   flex: 1;
   background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(233, 69, 96, 0.4);
+  border: 1px solid var(--color-accent);
   border-radius: 6px;
   padding: 2px 6px;
   font-size: 13px;
-  color: #fff;
+  color: var(--text-inverse);
   outline: none;
   min-width: 0;
 }
 
 .empty-list {
   text-align: center;
-  color: #4a5568;
+  color: var(--text-muted);
   font-size: 12px;
   padding: 20px;
 }
@@ -606,8 +632,13 @@ onUnmounted(() => {
 
 .sidebar-footer p {
   font-size: 11px;
-  color: #4a5568;
+  color: var(--text-muted);
   text-align: center;
+}
+
+.sidebar-footer .tech-stack {
+  margin-top: 4px;
+  opacity: 0.6;
 }
 
 /* ===== 主区域 ===== */
@@ -616,12 +647,13 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  background: var(--bg-page);
 }
 
 .header {
   padding: 16px 28px;
-  background: #fff;
-  border-bottom: 1px solid #e8ecf0;
+  background: var(--bg-header);
+  border-bottom: 1px solid var(--border-default);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -636,27 +668,27 @@ onUnmounted(() => {
   border-radius: 8px;
   border: none;
   background: transparent;
-  color: #6b7280;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .menu-btn:hover {
-  background: #f3f4f6;
-  color: #e94560;
+  background: var(--bg-hover);
+  color: var(--color-accent);
 }
 
 .header-title {
   font-size: 16px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--text-primary);
 }
 
 .mode-tabs {
   display: flex;
   gap: 6px;
   margin-left: auto;
-  background: #f5f7fa;
+  background: var(--mode-tab-bg);
   padding: 4px;
   border-radius: 10px;
 }
@@ -669,18 +701,38 @@ onUnmounted(() => {
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
-  color: #6b7280;
+  color: var(--text-secondary);
   transition: all 0.2s;
 }
 
 .mode-tab:hover {
-  color: #374151;
+  color: var(--text-primary);
 }
 
 .mode-tab.active {
-  background: #fff;
-  color: #e94560;
+  background: var(--mode-tab-active-bg);
+  color: var(--mode-tab-active-color);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* 主题切换按钮 */
+.theme-toggle {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.theme-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--color-primary);
 }
 
 /* ===== 消息区 ===== */
@@ -703,13 +755,13 @@ onUnmounted(() => {
 .welcome h2 {
   font-size: 22px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--welcome-title);
   margin-bottom: 8px;
 }
 
 .welcome p {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--welcome-text);
   line-height: 1.6;
   max-width: 400px;
   margin: 0 auto;
@@ -725,30 +777,30 @@ onUnmounted(() => {
 
 .hint-chip {
   padding: 8px 16px;
-  background: #fff;
-  border: 1px solid #e5e7eb;
+  background: var(--hint-bg);
+  border: 1px solid var(--hint-border);
   border-radius: 20px;
   font-size: 13px;
-  color: #374151;
+  color: var(--hint-text);
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .hint-chip:hover {
-  border-color: #e94560;
-  color: #e94560;
-  background: #fef2f2;
+  border-color: var(--hint-hover-border);
+  color: var(--hint-hover-text);
+  background: var(--hint-hover-bg);
 }
 
 .hint-chip.more {
-  color: #9ca3af;
+  color: var(--text-muted);
   border-style: dashed;
 }
 
 .hint-chip.more:hover {
-  color: #e94560;
-  border-color: #e94560;
-  background: #fef2f2;
+  color: var(--hint-hover-text);
+  border-color: var(--hint-hover-border);
+  background: var(--hint-hover-bg);
 }
 
 .streaming-row {
@@ -767,7 +819,7 @@ onUnmounted(() => {
   font-size: 13px;
   font-weight: 600;
   flex-shrink: 0;
-  background: linear-gradient(135deg, #0f3460, #16213e);
+  background: var(--color-primary);
   color: #fff;
 }
 
@@ -782,24 +834,32 @@ onUnmounted(() => {
   font-size: 14px;
   line-height: 1.7;
   word-break: break-word;
-  background: #fff;
-  color: #1a1a2e;
+  background: var(--bg-bubble-ai);
+  color: var(--text-primary);
   border-bottom-left-radius: 4px;
-  border-left: 3px solid #3b82f6;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  border-left: 3px solid var(--color-primary);
+  box-shadow: var(--shadow-sm);
 }
 
 /* ===== 输入区 ===== */
 .input-area {
   padding: 16px 28px 20px;
-  background: #fff;
-  border-top: 1px solid #e8ecf0;
+  background: var(--bg-header);
+  border-top: 1px solid var(--border-default);
   padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
 }
 
 .input-box :deep(.el-input__wrapper) {
   border-radius: 14px;
   padding: 6px 6px 6px 18px;
+  background: var(--bg-input);
+  box-shadow: none;
+  border: 1px solid var(--border-default);
+}
+
+.input-box :deep(.el-input__wrapper:hover),
+.input-box :deep(.el-input__wrapper.is-focus) {
+  border-color: var(--color-primary);
 }
 
 .input-box :deep(.el-input-group__append) {
@@ -818,7 +878,7 @@ onUnmounted(() => {
   text-align: center;
   margin-top: 8px;
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--text-muted);
 }
 
 /* ===== 移动端适配 ===== */

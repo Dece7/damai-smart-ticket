@@ -22,11 +22,11 @@ class RebuildResult(BaseModel):
 
 
 def _count_chunks(filepath: Path) -> int:
-    """估算文档分块数（粗略按段落拆分）"""
+    """估算文档分块数（粗略按标题段落拆分）"""
     try:
         text = filepath.read_text(encoding="utf-8")
-        # 简单估算：按 500 字一块
-        return max(1, len(text) // 500)
+        # 简单估算：按 800 字一块（与 split_documents 默认 chunk_size 一致）
+        return max(1, len(text) // 800)
     except Exception:
         return 0
 
@@ -83,16 +83,20 @@ async def delete_document(name: str):
 
 @router.post("/rebuild", response_model=RebuildResult)
 async def rebuild_index():
-    """重建向量索引（向量库 + BM25 索引）"""
-    from app.pipelines.document_pipeline import load_documents, split_documents, build_vectorstore
+    """重建向量索引（向量库 + BM25 索引 + Parent chunks）"""
+    from app.pipelines.document_pipeline import (
+        load_documents, split_documents_with_parents,
+        build_vectorstore, save_parent_chunks,
+    )
     from app.pipelines.rag_pipeline import build_bm25_index
 
     docs = load_documents(RAG_DOCS_DIR)
     if not docs:
         raise HTTPException(400, "知识库为空，请先上传文档")
 
-    chunks = split_documents(docs)
-    build_vectorstore(chunks)
-    build_bm25_index(chunks)
+    child_chunks, parent_dict = split_documents_with_parents(docs)
+    save_parent_chunks(parent_dict)
+    build_vectorstore(child_chunks)
+    build_bm25_index(child_chunks)
 
-    return RebuildResult(documents=len(docs), chunks=len(chunks))
+    return RebuildResult(documents=len(docs), chunks=len(child_chunks))

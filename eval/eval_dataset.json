@@ -53,5 +53,17 @@
   {"id": 52, "question": "可以更改配送地址吗", "expected_keywords": ["未寄出", "联系客服", "已寄出"], "expected_sources": ["取票与配送"], "difficulty": "medium"},
   {"id": 53, "question": "深圳有什么场馆", "expected_keywords": ["深圳湾体育中心", "春茧"], "expected_sources": ["各城市场馆信息"], "difficulty": "medium"},
   {"id": 54, "question": "会员会过期吗", "expected_keywords": ["每年1月1日", "重置", "消费金额"], "expected_sources": ["会员权益"], "difficulty": "medium"},
-  {"id": 55, "question": "儿童票和成人票有什么区别", "expected_keywords": ["价格", "便宜", "座位"], "expected_sources": ["儿童票政策"], "difficulty": "medium"}
+  {"id": 55, "question": "儿童票和成人票有什么区别", "expected_keywords": ["价格", "便宜", "座位"], "expected_sources": ["儿童票政策"], "difficulty": "medium"},
+
+  {"id": 56, "question": "帮我查一下北京的演唱会", "expected_keywords": ["演唱会", "北京"], "expected_sources": [], "difficulty": "easy", "intent": "ticket"},
+  {"id": 57, "question": "周杰伦最近有演出吗", "expected_keywords": ["周杰伦"], "expected_sources": [], "difficulty": "easy", "intent": "ticket"},
+  {"id": 58, "question": "推荐一下好看的演出", "expected_keywords": ["推荐", "演出"], "expected_sources": [], "difficulty": "easy", "intent": "ticket"},
+  {"id": 59, "question": "德云社还有票吗", "expected_keywords": ["德云社"], "expected_sources": [], "difficulty": "easy", "intent": "ticket"},
+  {"id": 60, "question": "查一下我的订单状态", "expected_keywords": ["订单"], "expected_sources": [], "difficulty": "easy", "intent": "ticket"},
+
+  {"id": 61, "question": "帮我查演唱会和退票规则", "expected_keywords": ["演唱会", "退票"], "expected_sources": [], "difficulty": "medium", "intent": "both"},
+  {"id": 62, "question": "帮我订票，顺便告诉我退票政策", "expected_keywords": ["退票"], "expected_sources": [], "difficulty": "medium", "intent": "both"},
+  {"id": 63, "question": "查一下北京的演出，再看看儿童票政策", "expected_keywords": ["儿童", "演出"], "expected_sources": [], "difficulty": "medium", "intent": "both"},
+  {"id": 64, "question": "帮我查周杰伦演唱会，入场需要带什么", "expected_keywords": ["周杰伦", "入场"], "expected_sources": [], "difficulty": "medium", "intent": "both"},
+  {"id": 65, "question": "有什么演出推荐，支付方式有哪些", "expected_keywords": ["推荐", "支付"], "expected_sources": [], "difficulty": "medium", "intent": "both"}
 ]

@@ -31,7 +31,6 @@ class ChatService:
             base_url=settings.mimo_base_url,
             model=settings.mimo_model,
             streaming=True,
-            stream_usage=True,
         ).bind_tools(TOOLS)
 
     async def chat(self, message: str, conversation_id: str | None, chat_type: str):

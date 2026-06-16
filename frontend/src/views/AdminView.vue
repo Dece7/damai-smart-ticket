@@ -22,31 +22,48 @@ const modeLabels: Record<string, string> = {
   assistant: '贴心助手',
   rag: '规则助手',
   agent: 'Agent',
+  multi_agent: '多Agent',
 }
 
 const modeColors: Record<string, string> = {
   assistant: '#e94560',
   rag: '#22c55e',
   agent: '#3b82f6',
+  multi_agent: '#f59e0b',
 }
 
 function formatNum(n: number): string {
   return n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n)
 }
 
+function getChartTheme() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
+  return {
+    textColor: isDark ? '#a89880' : '#6b7280',
+    lineColor: isDark ? '#3a3228' : '#f3f4f6',
+    bgColor: 'transparent',
+  }
+}
+
 function renderTrendChart(data: TrendItem[]) {
   if (!trendChart.value || !data.length) return
   trendInstance = echarts.init(trendChart.value)
+  const theme = getChartTheme()
   trendInstance.setOption({
     tooltip: { trigger: 'axis' },
-    legend: { bottom: 0, itemWidth: 12, itemGap: 16 },
+    legend: { bottom: 0, itemWidth: 12, itemGap: 16, textStyle: { color: theme.textColor } },
     grid: { left: 50, right: 20, top: 20, bottom: 50 },
     xAxis: {
       type: 'category',
       data: data.map((d) => d.date.slice(5)),
       axisTick: { show: false },
+      axisLabel: { color: theme.textColor },
     },
-    yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f3f4f6' } } },
+    yAxis: {
+      type: 'value',
+      splitLine: { lineStyle: { color: theme.lineColor } },
+      axisLabel: { color: theme.textColor },
+    },
     series: [
       {
         name: '输入 Token',
@@ -70,9 +87,10 @@ function renderTrendChart(data: TrendItem[]) {
 function renderModeChart(data: ModeItem[]) {
   if (!modeChart.value || !data.length) return
   modeInstance = echarts.init(modeChart.value)
+  const theme = getChartTheme()
   modeInstance.setOption({
     tooltip: { trigger: 'item' },
-    legend: { bottom: 0, itemWidth: 12, itemGap: 16 },
+    legend: { bottom: 0, itemWidth: 12, itemGap: 16, textStyle: { color: theme.textColor } },
     series: [
       {
         type: 'pie',
@@ -87,7 +105,7 @@ function renderModeChart(data: ModeItem[]) {
         emphasis: { label: { show: true, fontSize: 14, fontWeight: 600 } },
         itemStyle: {
           borderWidth: 2,
-          borderColor: '#fff',
+          borderColor: document.documentElement.getAttribute('data-theme') === 'dark' ? '#242018' : '#fff',
         },
       },
     ],
@@ -135,55 +153,55 @@ onUnmounted(() => {
     <div class="container">
       <!-- 统计卡片 -->
       <div class="cards">
-        <el-card shadow="hover" class="stat-card blue">
+        <div class="stat-card blue">
           <el-skeleton :rows="1" animated :loading="loading">
             <template #default>
               <div class="card-label">总对话数</div>
               <div class="card-value">{{ summary.total_conversations }}</div>
             </template>
           </el-skeleton>
-        </el-card>
-        <el-card shadow="hover" class="stat-card purple">
+        </div>
+        <div class="stat-card purple">
           <el-skeleton :rows="1" animated :loading="loading">
             <template #default>
               <div class="card-label">总消息数</div>
               <div class="card-value">{{ summary.total_messages }}</div>
             </template>
           </el-skeleton>
-        </el-card>
-        <el-card shadow="hover" class="stat-card red">
+        </div>
+        <div class="stat-card red">
           <el-skeleton :rows="1" animated :loading="loading">
             <template #default>
               <div class="card-label">总 Token</div>
               <div class="card-value accent">{{ formatNum(summary.total_tokens) }}</div>
             </template>
           </el-skeleton>
-        </el-card>
-        <el-card shadow="hover" class="stat-card cyan">
+        </div>
+        <div class="stat-card cyan">
           <el-skeleton :rows="1" animated :loading="loading">
             <template #default>
               <div class="card-label">平均 Token / 消息</div>
               <div class="card-value">{{ formatNum(summary.avg_tokens) }}</div>
             </template>
           </el-skeleton>
-        </el-card>
+        </div>
       </div>
 
       <el-empty v-if="!loading && summary.total_messages === 0" description="暂无统计数据，请先发送一些对话" />
 
       <div v-if="summary.total_messages > 0" class="charts">
-        <el-card shadow="hover" class="chart-box">
-          <template #header>
+        <div class="chart-box">
+          <div class="chart-header">
             <span class="chart-title">每日 Token 消耗趋势</span>
-          </template>
+          </div>
           <div ref="trendChart" class="chart-canvas" />
-        </el-card>
-        <el-card shadow="hover" class="chart-box">
-          <template #header>
+        </div>
+        <div class="chart-box">
+          <div class="chart-header">
             <span class="chart-title">模式用量对比</span>
-          </template>
+          </div>
           <div ref="modeChart" class="chart-canvas" />
-        </el-card>
+        </div>
       </div>
     </div>
   </div>
@@ -192,7 +210,7 @@ onUnmounted(() => {
 <style scoped>
 .admin-page {
   min-height: 100vh;
-  background: #f0f2f5;
+  background: var(--bg-page, #f0f2f5);
 }
 
 .container {
@@ -209,28 +227,22 @@ onUnmounted(() => {
 }
 
 .stat-card {
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-default, #e5e7eb);
+  border-radius: 10px;
+  padding: 20px;
   border-left: 3px solid transparent;
+  transition: background-color 0.3s, border-color 0.3s;
 }
 
-.stat-card.blue {
-  border-left-color: #3b82f6;
-}
-
-.stat-card.purple {
-  border-left-color: #8b5cf6;
-}
-
-.stat-card.red {
-  border-left-color: #e94560;
-}
-
-.stat-card.cyan {
-  border-left-color: #06b6d4;
-}
+.stat-card.blue { border-left-color: #3b82f6; }
+.stat-card.purple { border-left-color: #8b5cf6; }
+.stat-card.red { border-left-color: #e94560; }
+.stat-card.cyan { border-left-color: #06b6d4; }
 
 .card-label {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-muted, #9ca3af);
   margin-bottom: 6px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -239,12 +251,12 @@ onUnmounted(() => {
 .card-value {
   font-size: 28px;
   font-weight: 700;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
   font-variant-numeric: tabular-nums;
 }
 
 .card-value.accent {
-  color: #e94560;
+  color: var(--color-accent, #e94560);
 }
 
 .charts {
@@ -253,16 +265,65 @@ onUnmounted(() => {
   gap: 20px;
 }
 
+.chart-box {
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-default, #e5e7eb);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: background-color 0.3s, border-color 0.3s;
+}
+
+.chart-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-default, #e5e7eb);
+}
+
 .chart-title {
   font-size: 14px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
 }
 
 .chart-canvas {
   width: 100%;
   min-height: 320px;
   height: 320px;
+}
+
+/* 导航栏 */
+.page-nav {
+  background: var(--bg-sidebar, #1a1a2e);
+  padding: 14px 32px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.page-nav .nav-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-sidebar, #ccd6f6);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 6px 14px;
+  transition: all 0.2s;
+}
+
+.page-nav .nav-back:hover {
+  color: var(--text-sidebar-active, #fff);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.page-nav .nav-title {
+  color: var(--text-sidebar-active, #fff);
+  font-size: 16px;
+  font-weight: 600;
 }
 
 @media (max-width: 768px) {

@@ -95,10 +95,13 @@ loadDocuments()
     </nav>
 
     <div class="container">
-      <el-card shadow="hover">
+      <el-card shadow="never" class="main-card">
         <template #header>
           <div class="card-header">
-            <span>文档列表（{{ documents.length }} 份）</span>
+            <div class="header-left">
+              <span class="header-title">文档列表</span>
+              <span class="header-count">{{ documents.length }} 份</span>
+            </div>
             <div class="actions">
               <el-upload
                 ref="uploadRef"
@@ -120,14 +123,22 @@ loadDocuments()
           </div>
         </template>
 
-        <el-table :data="documents" v-loading="loading" stripe>
-          <el-table-column prop="name" label="文档名称" min-width="240" />
-          <el-table-column label="大小" width="100" align="center">
+        <el-table :data="documents" v-loading="loading" class="doc-table">
+          <el-table-column prop="name" label="文档名称" min-width="240">
             <template #default="{ row }">
-              {{ formatSize(row.size) }}
+              <span class="doc-name">{{ row.name }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="chunks" label="预估分块" width="100" align="center" />
+          <el-table-column label="大小" width="100" align="center">
+            <template #default="{ row }">
+              <span class="doc-size">{{ formatSize(row.size) }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="chunks" label="预估分块" width="100" align="center">
+            <template #default="{ row }">
+              <span class="doc-chunks">{{ row.chunks }}</span>
+            </template>
+          </el-table-column>
           <el-table-column label="操作" width="100" align="center">
             <template #default="{ row }">
               <el-button
@@ -146,23 +157,20 @@ loadDocuments()
         <el-empty v-if="!loading && documents.length === 0" description="暂无文档，请上传 .md 文件" />
       </el-card>
 
-      <el-card shadow="hover" class="tip-card">
-        <el-icon><InfoFilled /></el-icon>
+      <div class="tip-card">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" />
+        </svg>
         <span>上传 Markdown 文件后，需点击「重建索引」才能生效。文档存放在 <code>docs/rag/</code> 目录。</span>
-      </el-card>
+      </div>
     </div>
   </div>
 </template>
 
-<script lang="ts">
-import { InfoFilled } from '@element-plus/icons-vue'
-export default { components: { InfoFilled } }
-</script>
-
 <style scoped>
 .knowledge-page {
   min-height: 100vh;
-  background: #f0f2f5;
+  background: var(--bg-page, #f0f2f5);
 }
 
 .container {
@@ -171,11 +179,41 @@ export default { components: { InfoFilled } }
   padding: 28px 24px;
 }
 
+.main-card {
+  background: #fff;
+  border: 1px solid #e8e8e8;
+}
+
+.main-card :deep(.el-card__header) {
+  background: #fff;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.main-card :deep(.el-card__body) {
+  padding: 0;
+}
+
 .card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.header-left {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.header-title {
+  font-size: 15px;
   font-weight: 600;
+  color: #333;
+}
+
+.header-count {
+  font-size: 13px;
+  color: #999;
 }
 
 .actions {
@@ -183,23 +221,108 @@ export default { components: { InfoFilled } }
   gap: 8px;
 }
 
-.tip-card {
-  margin-top: 16px;
+/* 表格固定白底黑字，不受主题切换影响 */
+.doc-table {
+  --el-table-bg-color: #fff;
+  --el-table-tr-bg-color: #fff;
+  --el-table-header-bg-color: #f8f9fa;
+  --el-table-row-hover-bg-color: #f0f5ff;
+  --el-table-border-color: #e8e8e8;
+  --el-table-text-color: #333;
+  --el-table-header-text-color: #666;
+  --el-table-current-row-bg-color: #e6f0ff;
 }
 
-.tip-card :deep(.el-card__body) {
+.doc-name {
+  font-weight: 500;
+  color: #333;
+}
+
+.doc-size {
+  color: #888;
+  font-size: 13px;
+}
+
+.doc-chunks {
+  color: #888;
+  font-variant-numeric: tabular-nums;
+}
+
+.tip-card {
+  margin-top: 16px;
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 12px 16px;
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-default, #e5e7eb);
+  border-radius: 8px;
   font-size: 13px;
-  color: #6b7280;
+  color: var(--text-secondary, #6b7280);
+}
+
+.tip-card svg {
+  flex-shrink: 0;
+  color: var(--color-primary, #c2703e);
 }
 
 .tip-card code {
-  background: #f3f4f6;
+  background: var(--bg-code, #f3f4f6);
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 12px;
-  color: #e94560;
+  color: var(--color-accent, #e94560);
+}
+
+/* 导航栏 */
+.page-nav {
+  background: var(--bg-sidebar, #1a1a2e);
+  padding: 14px 32px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.page-nav .nav-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-sidebar, #ccd6f6);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 6px 14px;
+  transition: all 0.2s;
+}
+
+.page-nav .nav-back:hover {
+  color: var(--text-sidebar-active, #fff);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.page-nav .nav-title {
+  color: var(--text-sidebar-active, #fff);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .card-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .actions {
+    width: 100%;
+  }
+
+  .actions .el-button {
+    flex: 1;
+  }
 }
 </style>

@@ -1,0 +1,198 @@
+/* ===== 主题变量 ===== */
+
+/* 白天模式 - 纸质感米黄色 */
+:root,
+[data-theme="light"] {
+  /* 主色 */
+  --color-primary: #c2703e;
+  --color-primary-hover: #a85c30;
+  --color-primary-light: #fdf0e6;
+  --color-accent: #e94560;
+
+  /* 背景 */
+  --bg-page: #f8f0e3;
+  --bg-card: #faf6ef;
+  --bg-sidebar: #2c2417;
+  --bg-header: #faf6ef;
+  --bg-input: #fff;
+  --bg-hover: #f0e6d6;
+  --bg-bubble-user: #fdf0e6;
+  --bg-bubble-ai: #fffdf9;
+  --bg-code: #f5ece0;
+
+  /* 文字 */
+  --text-primary: #2c2417;
+  --text-secondary: #7a6e5e;
+  --text-muted: #b5a999;
+  --text-inverse: #faf6ef;
+  --text-sidebar: #c8bfb0;
+  --text-sidebar-active: #f0e6d6;
+
+  /* 边框 */
+  --border-default: #e8ddd0;
+  --border-strong: #d4c8b8;
+  --border-bubble-user: #e8d5c4;
+  --border-bubble-ai: #c2703e;
+
+  /* 阴影 */
+  --shadow-sm: 0 1px 3px rgba(44, 36, 23, 0.06);
+  --shadow-md: 0 4px 8px rgba(44, 36, 23, 0.08);
+
+  /* 欢迎页 */
+  --welcome-title: #2c2417;
+  --welcome-text: #7a6e5e;
+
+  /* 模式标签 */
+  --mode-tab-bg: #f0e6d6;
+  --mode-tab-active-bg: #fffdf9;
+  --mode-tab-active-color: #c2703e;
+
+  /* 提示芯片 */
+  --hint-bg: #fffdf9;
+  --hint-border: #e8ddd0;
+  --hint-text: #5a4e3e;
+  --hint-hover-border: #c2703e;
+  --hint-hover-text: #c2703e;
+  --hint-hover-bg: #fdf0e6;
+
+  /* 滚动条 */
+  --scrollbar-thumb: rgba(44, 36, 23, 0.15);
+  --scrollbar-thumb-hover: rgba(44, 36, 23, 0.25);
+
+  /* 侧边栏操作按钮 */
+  --action-bg: rgba(44, 36, 23, 0.95);
+  --action-hover-bg: rgba(255, 255, 255, 0.12);
+  --action-text: #c8bfb0;
+  --action-hover-text: #f0e6d6;
+
+  /* Token 统计 */
+  --stats-bg: #f5ece0;
+  --stats-border: #e8ddd0;
+  --stats-text: #7a6e5e;
+
+  /* 错误卡片 */
+  --error-bg: #fef2f2;
+  --error-border: #fecaca;
+  --error-text: #991b1b;
+
+  /* 文案 */
+  --welcome-greeting: "你好，我是麦小蜜"
+  --welcome-desc: "温暖的纸质感，陪你聊天"
+}
+
+/* 黑夜模式 */
+[data-theme="dark"] {
+  /* 主色 */
+  --color-primary: #e8a87c;
+  --color-primary-hover: #d4946a;
+  --color-primary-light: #3d2e1e;
+  --color-accent: #e94560;
+
+  /* 背景 */
+  --bg-page: #1a1612;
+  --bg-card: #242018;
+  --bg-sidebar: #151210;
+  --bg-header: #242018;
+  --bg-input: #2a2520;
+  --bg-bubble-user: #3d2e1e;
+  --bg-bubble-ai: #2a2520;
+  --bg-code: #2a2520;
+
+  /* 文字 */
+  --text-primary: #e8ddd0;
+  --text-secondary: #a89880;
+  --text-muted: #6a5e50;
+  --text-inverse: #f0e6d6;
+  --text-sidebar: #8a7e70;
+  --text-sidebar-active: #e8ddd0;
+
+  /* 边框 */
+  --border-default: #3a3228;
+  --border-strong: #4a4030;
+  --border-bubble-user: #5a4530;
+  --border-bubble-ai: #e8a87c;
+
+  /* 阴影 */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.3);
+
+  /* 欢迎页 */
+  --welcome-title: #e8ddd0;
+  --welcome-text: #a89880;
+
+  /* 模式标签 */
+  --mode-tab-bg: #2a2520;
+  --mode-tab-active-bg: #3d2e1e;
+  --mode-tab-active-color: #e8a87c;
+
+  /* 提示芯片 */
+  --hint-bg: #2a2520;
+  --hint-border: #3a3228;
+  --hint-text: #a89880;
+  --hint-hover-border: #e8a87c;
+  --hint-hover-text: #e8a87c;
+  --hint-hover-bg: #3d2e1e;
+
+  /* 滚动条 */
+  --scrollbar-thumb: rgba(232, 168, 124, 0.15);
+  --scrollbar-thumb-hover: rgba(232, 168, 124, 0.25);
+
+  /* 侧边栏操作按钮 */
+  --action-bg: rgba(30, 25, 20, 0.95);
+  --action-hover-bg: rgba(232, 168, 124, 0.12);
+  --action-text: #8a7e70;
+  --action-hover-text: #e8ddd0;
+
+  /* Token 统计 */
+  --stats-bg: #2a2520;
+  --stats-border: #3a3228;
+  --stats-text: #a89880;
+
+  /* 错误卡片 */
+  --error-bg: #3d1e1e;
+  --error-border: #5e2e2e;
+  --error-text: #f0a0a0;
+}
+
+/* ===== 全局基础样式 ===== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg-page);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* 滚动条 */
+::-webkit-scrollbar {
+  width: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* 主题切换过渡 */
+.sidebar,
+.main,
+.header,
+.input-area,
+.msg-bubble,
+.hint-chip,
+.mode-tab {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}

@@ -1,7 +1,20 @@
-"""工具定义 - 对应原项目 AiProgram.java 的 @Tool 方法"""
+"""工具定义 - 支持模拟数据和真实 Java API 两种模式
 
+当 java_api_enabled=True 时，调用真实 Java 后端 API；
+否则使用本地模拟数据（demo 模式）。
+"""
+
+import logging
 from langchain_core.tools import tool
-from app.services.mock_data import PROGRAMS, TICKET_CATEGORIES, USERS, ORDER_COUNTER, ORDERS, MEMBERS, MEMBER_DISCOUNTS
+from app.utils.java_api_client import java_api
+
+logger = logging.getLogger(__name__)
+
+
+def _fallback_mock():
+    """Java API 不可用时，回退到模拟数据"""
+    from app.services.mock_data import PROGRAMS, TICKET_CATEGORIES, USERS, ORDER_COUNTER, ORDERS, MEMBERS
+    return PROGRAMS, TICKET_CATEGORIES, USERS, ORDER_COUNTER, ORDERS, MEMBERS
 
 
 @tool
@@ -14,17 +27,14 @@ def search_knowledge_base(query: str) -> str:
     """
     from pathlib import Path
     from app.pipelines.rag_pipeline import get_hybrid_retriever, rewrite_query
-    # 查询改写：将模糊问题转为完整查询
     rewritten = rewrite_query(query)
     hybrid_retrieve = get_hybrid_retriever(use_reranker=False)
     docs = hybrid_retrieve(rewritten, original_query=query)
 
-    # 构建包含来源的返回文本
     parts = []
     for doc in docs:
         source = Path(doc.metadata.get("source", "")).stem
         parts.append(f"[来源：{source}]\n{doc.page_content}")
-
     return "\n\n---\n\n".join(parts)
 
 
@@ -37,13 +47,24 @@ def search_program(city: str = "", category: str = "", actor: str = "") -> list[
         category: 节目类型，如"演唱会"、"音乐节"、"话剧"、"相声"
         actor: 艺人名，如"周杰伦"、"林俊杰"
     """
+    # 优先使用 Java API
+    if java_api.enabled:
+        # 构建搜索内容（不包含城市，城市通过 area_id 查询）
+        search_content = f"{category} {actor}".strip()
+        result = java_api.search_program(content=search_content, city=city)
+        if result and result.get("list"):
+            return result["list"]
+        logger.info("Java API 无结果，回退到模拟数据")
+
+    # 回退到模拟数据
+    PROGRAMS, *_ = _fallback_mock()
     results = PROGRAMS
     if city:
-        results = [p for p in results if city in p["city"]]
+        results = [p for p in results if city in p.get("city", "")]
     if category:
-        results = [p for p in results if category in p["category"]]
+        results = [p for p in results if category in p.get("category", "")]
     if actor:
-        results = [p for p in results if actor in p["actor"]]
+        results = [p for p in results if actor in p.get("actor", "")]
     return results
 
 
@@ -54,6 +75,17 @@ def get_program_detail(program_id: int) -> dict | None:
     Args:
         program_id: 节目ID
     """
+    # 优先使用 Java API
+    if java_api.enabled:
+        detail = java_api.get_program_detail(program_id)
+        if detail:
+            tickets = java_api.get_ticket_categories(program_id)
+            detail["tickets"] = tickets if tickets else []
+            return detail
+        logger.info("Java API 无结果，回退到模拟数据")
+
+    # 回退到模拟数据
+    PROGRAMS, TICKET_CATEGORIES, *_ = _fallback_mock()
     program = next((p for p in PROGRAMS if p["id"] == program_id), None)
     if not program:
         return None
@@ -68,6 +100,15 @@ def get_ticket_info(program_id: int) -> list[dict]:
     Args:
         program_id: 节目ID
     """
+    # 优先使用 Java API
+    if java_api.enabled:
+        tickets = java_api.get_ticket_categories(program_id)
+        if tickets:
+            return tickets
+        logger.info("Java API 无结果，回退到模拟数据")
+
+    # 回退到模拟数据
+    _, TICKET_CATEGORIES, *_ = _fallback_mock()
     return TICKET_CATEGORIES.get(program_id, [])
 
 
@@ -79,8 +120,28 @@ def create_order(program_id: int, ticket_price: float, ticket_count: int, mobile
         program_id: 节目ID
         ticket_price: 票档价格
         ticket_count: 购票数量
-        user_mobile: 用户手机号
+        mobile: 用户手机号
     """
+    # 优先使用 Java API
+    if java_api.enabled:
+        # Java API 需要 ticketCategoryId，先查票档
+        tickets = java_api.get_ticket_categories(program_id)
+        if tickets:
+            ticket = next((t for t in tickets if t.get("price") == ticket_price), None)
+            if ticket:
+                result = java_api.create_order(
+                    program_id=program_id,
+                    ticket_category_id=ticket.get("id"),
+                    ticket_count=ticket_count,
+                    mobile=mobile,
+                )
+                if result:
+                    return result
+        logger.info("Java API 创建订单失败，回退到模拟数据")
+
+    # 回退到模拟数据
+    PROGRAMS, TICKET_CATEGORIES, USERS, ORDER_COUNTER, ORDERS, MEMBERS, *_ = _fallback_mock()
+
     program = next((p for p in PROGRAMS if p["id"] == program_id), None)
     if not program:
         return {"error": "节目不存在"}
@@ -102,7 +163,6 @@ def create_order(program_id: int, ticket_price: float, ticket_count: int, mobile
 
     ticket["remain"] -= ticket_count
 
-    # 计算会员折扣
     discount = 1.0
     member_level = "非会员"
     if mobile in MEMBERS:
@@ -130,9 +190,7 @@ def create_order(program_id: int, ticket_price: float, ticket_count: int, mobile
         "payUrl": f"http://localhost:5173/order/{order_number}",
     }
 
-    # 保存订单
     ORDERS[order_number] = order
-
     return order
 
 
@@ -143,6 +201,33 @@ def query_ticket_status(program_id: int) -> dict:
     Args:
         program_id: 节目ID，如 1 表示周杰伦演唱会-北京站
     """
+    # 优先使用 Java API
+    if java_api.enabled:
+        detail = java_api.get_program_detail(program_id)
+        tickets = java_api.get_ticket_categories(program_id)
+        if detail and tickets:
+            ticket_status = []
+            for t in tickets:
+                remain = t.get("remain", 0)
+                status = "有票" if remain > 0 else "售罄"
+                if 0 < remain <= 10:
+                    status = f"仅剩{remain}张"
+                ticket_status.append({
+                    "name": t.get("name", ""),
+                    "price": t.get("price", 0),
+                    "remain": remain,
+                    "status": status,
+                })
+            return {
+                "program": detail.get("name", ""),
+                "showTime": detail.get("showTime", ""),
+                "venue": detail.get("venue", ""),
+                "tickets": ticket_status,
+            }
+        logger.info("Java API 无结果，回退到模拟数据")
+
+    # 回退到模拟数据
+    PROGRAMS, TICKET_CATEGORIES, *_ = _fallback_mock()
     program = next((p for p in PROGRAMS if p["id"] == program_id), None)
     if not program:
         return {"error": f"节目ID {program_id} 不存在"}
@@ -175,6 +260,15 @@ def check_order_status(order_number: str) -> dict:
     Args:
         order_number: 订单号，如 DM10001
     """
+    # 优先使用 Java API
+    if java_api.enabled:
+        order = java_api.get_order(order_number)
+        if order:
+            return order
+        logger.info("Java API 无结果，回退到模拟数据")
+
+    # 回退到模拟数据
+    _, _, _, _, ORDERS, *_ = _fallback_mock()
     order = ORDERS.get(order_number)
     if not order:
         return {"error": f"订单 {order_number} 不存在，请检查订单号是否正确"}
@@ -191,6 +285,9 @@ def calculate_price(program_id: int, ticket_price: float, ticket_count: int, mob
         ticket_count: 购票数量
         mobile: 用户手机号（可选，用于查询会员折扣）
     """
+    # 模拟数据模式（计算逻辑简单，不需要调 Java API）
+    PROGRAMS, TICKET_CATEGORIES, _, _, _, MEMBERS, *_ = _fallback_mock()
+
     program = next((p for p in PROGRAMS if p["id"] == program_id), None)
     if not program:
         return {"error": "节目不存在"}
@@ -235,14 +332,22 @@ def get_recommendations(city: str = "", category: str = "", budget: float = 0) -
         category: 节目类型，如"演唱会"、"话剧"（可选）
         budget: 预算上限，单位元（可选，0表示不限预算）
     """
+    # 优先使用 Java API
+    if java_api.enabled:
+        result = java_api.get_recommend_list()
+        if result:
+            return result[:5]
+        logger.info("Java API 无结果，回退到模拟数据")
+
+    # 回退到模拟数据
+    PROGRAMS, TICKET_CATEGORIES, *_ = _fallback_mock()
     results = PROGRAMS
 
     if city:
-        results = [p for p in results if city in p["city"]]
+        results = [p for p in results if city in p.get("city", "")]
     if category:
-        results = [p for p in results if category in p["category"]]
+        results = [p for p in results if category in p.get("category", "")]
 
-    # 如果指定了预算，过滤有票档在预算内的节目
     if budget > 0:
         filtered = []
         for p in results:
@@ -252,12 +357,10 @@ def get_recommendations(city: str = "", category: str = "", budget: float = 0) -
                 filtered.append(p)
         results = filtered
 
-    # 按热度排序（这里简单按 ID 排序，实际可按销量排序）
     results = sorted(results, key=lambda x: x["id"])
 
-    # 添加推荐理由
     recommendations = []
-    for p in results[:5]:  # 最多推荐 5 个
+    for p in results[:5]:
         tickets = TICKET_CATEGORIES.get(p["id"], [])
         min_price = min((t["price"] for t in tickets), default=0)
         max_remain = max((t["remain"] for t in tickets), default=0)

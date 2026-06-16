@@ -6,8 +6,8 @@
 
 body {
   font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
-  background: #f0f2f5;
-  color: #1a1a2e;
+  background: var(--bg-page, #f0f2f5);
+  color: var(--text-primary, #1a1a2e);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -23,18 +23,18 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #d1d5db;
+  background: var(--scrollbar-thumb, #d1d5db);
   border-radius: 6px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
+  background: var(--scrollbar-thumb-hover, #9ca3af);
 }
 
 /* 滚动条样式 - Firefox */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #d1d5db transparent;
+  scrollbar-color: var(--scrollbar-thumb, #d1d5db) transparent;
 }
 
 /* ===== Markdown 渲染样式 ===== */
@@ -47,13 +47,13 @@ body {
 }
 
 .md-content strong {
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
   font-weight: 600;
 }
 
 .md-content em {
   font-style: italic;
-  color: #6b7280;
+  color: var(--text-secondary, #6b7280);
 }
 
 .md-content ul,
@@ -68,11 +68,11 @@ body {
 }
 
 .md-content code {
-  background: #f3f4f6;
+  background: var(--bg-code, #f3f4f6);
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 13px;
-  color: #e94560;
+  color: var(--color-accent, #e94560);
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
 }
 
@@ -99,21 +99,21 @@ body {
   font-size: 17px;
   font-weight: 700;
   margin: 14px 0 8px;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
 }
 
 .md-content h2 {
   font-size: 16px;
   font-weight: 600;
   margin: 12px 0 6px;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
 }
 
 .md-content h3 {
   font-size: 15px;
   font-weight: 600;
   margin: 10px 0 6px;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
 }
 
 .md-content h1:first-child,
@@ -123,11 +123,11 @@ body {
 }
 
 .md-content blockquote {
-  border-left: 3px solid #e94560;
+  border-left: 3px solid var(--color-accent, #e94560);
   padding: 8px 12px;
   margin: 8px 0;
-  color: #6b7280;
-  background: #f8fafc;
+  color: var(--text-secondary, #6b7280);
+  background: var(--bg-code, #f8fafc);
   border-radius: 0 8px 8px 0;
 }
 
@@ -140,24 +140,25 @@ body {
 
 .md-content th,
 .md-content td {
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-default, #e5e7eb);
   padding: 6px 10px;
   text-align: left;
+  color: var(--text-primary, #1a1a2e);
 }
 
 .md-content th {
-  background: #f9fafb;
+  background: var(--bg-hover, #f9fafb);
   font-weight: 600;
 }
 
 .md-content a {
-  color: #2563eb;
+  color: var(--color-primary, #2563eb);
   text-decoration: underline;
 }
 
 .md-content hr {
   border: none;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--border-default, #e5e7eb);
   margin: 12px 0;
 }
 
@@ -166,7 +167,7 @@ body {
   display: inline-block;
   width: 2px;
   height: 1em;
-  background: #e94560;
+  background: var(--color-accent, #e94560);
   margin-left: 2px;
   vertical-align: text-bottom;
   animation: blink 0.8s ease-in-out infinite;
@@ -189,7 +190,7 @@ body {
 
 /* ===== 通用导航栏 ===== */
 .page-nav {
-  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  background: var(--bg-sidebar, #1a1a2e);
   padding: 14px 32px;
   display: flex;
   align-items: center;
@@ -200,7 +201,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #ccd6f6;
+  color: var(--text-sidebar, #ccd6f6);
   font-size: 13px;
   font-weight: 500;
   text-decoration: none;
@@ -213,13 +214,13 @@ body {
 }
 
 .page-nav .nav-back:hover {
-  color: #fff;
+  color: var(--text-sidebar-active, #fff);
   background: rgba(255, 255, 255, 0.12);
   border-color: rgba(255, 255, 255, 0.2);
 }
 
 .page-nav .nav-title {
-  color: #fff;
+  color: var(--text-sidebar-active, #fff);
   font-size: 16px;
   font-weight: 600;
 }

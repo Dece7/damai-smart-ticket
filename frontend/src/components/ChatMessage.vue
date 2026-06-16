@@ -1,15 +1,21 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { marked } from 'marked'
+import { ElMessage } from 'element-plus'
 import ReasoningTimeline from './ReasoningTimeline.vue'
 import SourceCard from './SourceCard.vue'
 import type { Message } from '../api/conversation'
 
-defineProps<{
+const props = defineProps<{
   message: Message & { _showSteps?: boolean; _showSources?: boolean }
 }>()
 
+const emit = defineEmits<{
+  regenerate: []
+}>()
+
 const showStats = ref(false)
+const copied = ref(false)
 
 function renderMd(text: string): string {
   if (!text) return ''
@@ -24,6 +30,32 @@ function renderMd(text: string): string {
   } catch {
     return text
   }
+}
+
+async function copyContent() {
+  const text = props.message.content || ''
+  if (!text) return
+  try {
+    await navigator.clipboard.writeText(text)
+    copied.value = true
+    ElMessage.success('已复制')
+    setTimeout(() => { copied.value = false }, 2000)
+  } catch {
+    // fallback
+    const ta = document.createElement('textarea')
+    ta.value = text
+    document.body.appendChild(ta)
+    ta.select()
+    document.execCommand('copy')
+    document.body.removeChild(ta)
+    copied.value = true
+    ElMessage.success('已复制')
+    setTimeout(() => { copied.value = false }, 2000)
+  }
+}
+
+function handleRegenerate() {
+  emit('regenerate')
 }
 </script>
 
@@ -50,20 +82,47 @@ function renderMd(text: string): string {
         {{ message.error }}
       </div>
 
-      <!-- 用户消息：纯文本，不走 Markdown -->
+      <!-- 用户消息 -->
       <div
         v-if="message.role === 'user' && message.content"
         class="msg-bubble user-bubble"
-      >{{ message.content }}</div>
+      >{{ message.content }}
+        <div class="msg-actions">
+          <button class="msg-action-btn" @click="copyContent" title="复制">
+            <svg v-if="!copied" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+            </svg>
+            <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
 
-      <!-- AI 消息：Markdown 渲染 -->
+      <!-- AI 消息 -->
       <div
         v-if="message.role === 'assistant' && message.content"
         class="msg-bubble assistant-bubble md-content"
-        v-html="renderMd(message.content)"
-      />
+      >
+        <div v-html="renderMd(message.content)" />
+        <div class="msg-actions">
+          <button class="msg-action-btn" @click="copyContent" title="复制">
+            <svg v-if="!copied" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+            </svg>
+            <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </button>
+          <button class="msg-action-btn" @click="handleRegenerate" title="重新生成">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10" />
+            </svg>
+          </button>
+        </div>
+      </div>
 
-      <!-- Token 统计（点击展开） -->
+      <!-- Token 统计 -->
       <div v-if="message.token_usage" class="token-stats-wrap">
         <span class="stats-toggle" @click="showStats = !showStats">
           {{ showStats ? '收起' : 'Token' }}
@@ -104,12 +163,12 @@ function renderMd(text: string): string {
 }
 
 .msg-row.user .msg-avatar {
-  background: linear-gradient(135deg, #e94560, #ff6b6b);
+  background: var(--color-accent);
   color: #fff;
 }
 
 .msg-row.assistant .msg-avatar {
-  background: linear-gradient(135deg, #0f3460, #16213e);
+  background: var(--color-primary);
   color: #fff;
 }
 
@@ -124,34 +183,80 @@ function renderMd(text: string): string {
   font-size: 14px;
   line-height: 1.7;
   word-break: break-word;
+  position: relative;
 }
 
-/* 用户气泡：柔和浅色 */
+/* 用户气泡 */
 .user-bubble {
   white-space: pre-wrap;
-  background: linear-gradient(135deg, #fef2f2, #fce7f3);
-  color: #1a1a2e;
-  border: 1px solid #fecaca;
+  background: var(--bg-bubble-user);
+  color: var(--text-primary);
+  border: 1px solid var(--border-bubble-user);
   border-bottom-right-radius: 4px;
 }
 
-/* AI 气泡：白底 + 左侧蓝色标识 */
+/* AI 气泡 */
 .assistant-bubble {
-  background: #fff;
-  color: #1a1a2e;
+  background: var(--bg-bubble-ai);
+  color: var(--text-primary);
   border-bottom-left-radius: 4px;
-  border-left: 3px solid #3b82f6;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  border-left: 3px solid var(--border-bubble-ai);
+  box-shadow: var(--shadow-sm);
+}
+
+/* 消息操作按钮 */
+.msg-actions {
+  display: none;
+  position: absolute;
+  bottom: -28px;
+  gap: 2px;
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-default, #e5e7eb);
+  border-radius: 6px;
+  padding: 2px;
+  box-shadow: var(--shadow-sm);
+  z-index: 10;
+}
+
+.msg-row.user .msg-actions {
+  right: 0;
+}
+
+.msg-row.assistant .msg-actions {
+  left: 0;
+}
+
+.msg-bubble:hover .msg-actions {
+  display: flex;
+}
+
+.msg-action-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #6b7280);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.msg-action-btn:hover {
+  background: var(--bg-hover, #f3f4f6);
+  color: var(--text-primary, #1a1a2e);
 }
 
 .error-card {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  background: var(--error-bg);
+  border: 1px solid var(--error-border);
   border-radius: 10px;
   padding: 10px 14px;
   margin-bottom: 8px;
   font-size: 13px;
-  color: #991b1b;
+  color: var(--error-text);
   transition: box-shadow 0.2s;
 }
 
@@ -169,7 +274,7 @@ function renderMd(text: string): string {
 
 .stats-toggle {
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--text-muted);
   cursor: pointer;
   padding: 2px 6px;
   border-radius: 4px;
@@ -177,8 +282,8 @@ function renderMd(text: string): string {
 }
 
 .stats-toggle:hover {
-  background: #f1f5f9;
-  color: #64748b;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
 }
 
 .token-stats {
@@ -186,19 +291,19 @@ function renderMd(text: string): string {
   align-items: center;
   gap: 8px;
   padding: 3px 10px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--stats-bg);
+  border: 1px solid var(--stats-border);
   border-radius: 8px;
   font-size: 11px;
-  color: #64748b;
+  color: var(--stats-text);
 }
 
 .token-stats .label {
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .token-stats .value {
-  color: #475569;
+  color: var(--text-secondary);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }

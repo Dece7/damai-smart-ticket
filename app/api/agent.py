@@ -4,6 +4,7 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field
 from app.services.agent_service import agent_service
+from app.services.multi_agent_service import multi_agent_service
 from app.core.security import check_injection, sanitize_input
 
 router = APIRouter(prefix="/agent", tags=["Agent"])
@@ -50,10 +51,11 @@ async def multi_agent_chat(request: AgentRequest):
             content={"detail": f"输入被拒绝：{reason}"},
         )
 
-    from app.chains.multi_agent import run_multi_agent
-
     return StreamingResponse(
-        run_multi_agent(message),
+        multi_agent_service.chat(
+            message=message,
+            conversation_id=request.conversation_id,
+        ),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

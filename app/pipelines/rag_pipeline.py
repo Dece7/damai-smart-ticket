@@ -15,7 +15,7 @@ from langchain_core.runnables import RunnablePassthrough
 from langchain_openai import ChatOpenAI
 from app.core.config import get_settings
 from app.core.prompts import SYSTEM_PROMPT_RAG, QUERY_REWRITE_PROMPT
-from app.pipelines.document_pipeline import load_vectorstore, load_documents, split_documents
+from app.pipelines.document_pipeline import load_vectorstore, load_documents, split_documents, load_parent_chunks
 
 logger = logging.getLogger(__name__)
 
@@ -50,9 +50,9 @@ def rewrite_query(question: str) -> str:
     """
     settings = get_settings()
     llm = ChatOpenAI(
-        api_key=settings.deepseek_api_key,
-        base_url=settings.deepseek_base_url,
-        model=settings.deepseek_model,
+        api_key=settings.mimo_api_key,
+        base_url=settings.mimo_base_url,
+        model=settings.mimo_model,
         temperature=0,
     )
     prompt = ChatPromptTemplate.from_messages([
@@ -131,17 +131,39 @@ def load_bm25_index():
     return data["bm25"], data["chunks"]
 
 
-def hybrid_retrieve(query: str, vectorstore, bm25, chunks, k: int = 5, bm25_weight: float = 0.9, use_reranker: bool = False, original_query: str = None):
+def _resolve_parents(child_docs: list, parent_dict: dict, k: int) -> list:
+    """将 child chunks 映射为 parent chunks，去重后返回 Top-K
+
+    多个 child 映射到同一 parent 时，保留 RRF 分数最高的那个 parent。
+    """
+    seen_parents = {}
+    for doc in child_docs:
+        parent_id = doc.metadata.get("parent_id")
+        if parent_id and parent_id in parent_dict:
+            if parent_id not in seen_parents:
+                seen_parents[parent_id] = parent_dict[parent_id]
+        else:
+            # 没有 parent_id 或 parent_dict 为空时，直接返回 child（兼容旧模式）
+            doc_id = id(doc)
+            if doc_id not in seen_parents:
+                seen_parents[doc_id] = doc
+    return list(seen_parents.values())[:k]
+
+
+def hybrid_retrieve(query: str, vectorstore, bm25, chunks, k: int = 5, bm25_weight: float = 0.9, use_reranker: bool = False, original_query: str = None, parent_dict: dict = None):
     """混合检索：BM25 + 向量，RRF 融合，Reranker 精排
+
+    支持 Parent-Child 模式：用 child chunks 检索，返回 parent chunks 给 LLM。
 
     Args:
         query: 用户查询
         vectorstore: ChromaDB 向量库
         bm25: BM25 索引
-        chunks: 文档分块列表
+        chunks: 文档分块列表（child chunks）
         k: 最终返回结果数
         bm25_weight: BM25 权重（0-1），向量权重 = 1 - bm25_weight
         use_reranker: 是否启用 Reranker 精排
+        parent_dict: parent chunks 字典，启用 Parent-Child 模式
     """
     settings = get_settings()
     candidate_count = settings.reranker_candidate_count if use_reranker else k
@@ -183,12 +205,18 @@ def hybrid_retrieve(query: str, vectorstore, bm25, chunks, k: int = 5, bm25_weig
     if use_reranker and len(coarse_results) > k:
         try:
             rerank_query = original_query if original_query else query
-            print(f"[DEBUG] Reranker 查询: '{rerank_query}' (original='{original_query}', query='{query}')")
             final_results = rerank(rerank_query, coarse_results, top_n=k)
             logger.info(f"Reranker 精排: {len(coarse_results)} → {len(final_results)}")
+            # Reranker 排序后再映射 parent
+            if parent_dict:
+                return _resolve_parents(final_results, parent_dict, k)
             return final_results
         except Exception as e:
             logger.warning(f"Reranker 精排失败，回退到粗排结果: {e}")
+
+    # Parent-Child 映射：child → parent
+    if parent_dict:
+        return _resolve_parents(coarse_results, parent_dict, k)
 
     return coarse_results[:k]
 
@@ -223,6 +251,7 @@ def get_hybrid_retriever(use_reranker: bool = False):
     """获取混合检索器（供 chat_service 和 tools 使用）"""
     vectorstore = load_vectorstore()
     bm25, chunks = load_bm25_index()
+    parent_dict = load_parent_chunks()  # 可能为 None（兼容旧模式）
     def _retrieve(query, original_query=None):
-        return hybrid_retrieve(query, vectorstore, bm25, chunks, use_reranker=use_reranker, original_query=original_query)
+        return hybrid_retrieve(query, vectorstore, bm25, chunks, use_reranker=use_reranker, original_query=original_query, parent_dict=parent_dict)
     return _retrieve
