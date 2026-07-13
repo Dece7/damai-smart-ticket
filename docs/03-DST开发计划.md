@@ -8,15 +8,15 @@
 ## 总览
 
 ```
-Phase 1  基础对话           1-2 天    FastAPI + Mimo 流式对话               ✅
-Phase 2  Function Calling   2-3 天    工具定义 + AI 自动调用                ✅
-Phase 3  RAG 知识库问答      2-3 天    Markdown + ChromaDB + 检索生成       ✅
-Phase 4  会话记忆管理        1-2 天    多轮对话 + 多会话 + 数据库持久化         ✅
-Phase 5  Agent 编排          2-3 天    LangGraph ReAct Agent              ✅
-Phase 6  前端对接 + 部署     2-3 天    Vue 前端 + Docker                    ✅
-Phase 7  优化增强            2-3 天    P0/P1 功能补齐                       ✅
-Phase 8  功能扩展与深度优化   3 周     Reranker + 评估 + FC扩展 + 前端工程化   ✅
-Phase 9  深度优化             1 周     查询改写 + 多Agent + MCP协议          ✅
+Phase 1  基础对话              1-2 天    FastAPI + Mimo 流式对话               ✅
+Phase 2  Function Calling    2-3 天    工具定义 + AI 自动调用                  ✅
+Phase 3  RAG 知识库问答        2-3 天    Markdown + ChromaDB + 检索生成        ✅
+Phase 4  会话记忆管理          1-2 天    多轮对话 + 多会话 + 数据库持久化          ✅
+Phase 5  Agent 编排           2-3 天    LangGraph ReAct Agent                ✅
+Phase 6  前端对接 + 部署       2-3 天     Vue 前端 + Docker                    ✅
+Phase 7  优化增强             2-3 天     P0/P1 功能补齐                        ✅
+Phase 8  功能扩展与深度优化     3 周       Reranker + 评估 + FC扩展 + 前端工程化   ✅
+Phase 9  深度优化             1 周       查询改写 + 多Agent + MCP协议           ✅
 
 总计：约 12-19 天（Phase 1-7）+ 3 周（Phase 8）+ 1 周（Phase 9）
 ```

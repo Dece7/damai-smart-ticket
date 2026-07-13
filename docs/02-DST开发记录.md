@@ -1,7 +1,6 @@
 # DST 开发记录
 
 > 大麦智能票务助手（Python 版）开发过程中的关键信息记录。
-> 持续更新。
 
 ---
 
@@ -24,7 +23,7 @@
 
 | 项 | 值 |
 |----|-----|
-| API Key | `tp-cyg8uoab7h9881dea5ld1mycvl70uavsoumhwm8nhlm55spv` |
+| API Key | `tp-cy` |
 | Base URL | `https://token-plan-cn.xiaomimimo.com/v1` |
 | 模型名 | `mimo-v2.5` |
 | 协议 | OpenAI 兼容 |
@@ -43,7 +42,7 @@
 
 | 项 | 值 |
 |----|-----|
-| API Key | `sk-940aa79541cb44cb87471fb503600c43` |
+| API Key | `sk-94` |
 | 模型名 | `tongyi-embedding-vision-plus`（多模态，1024 维） |
 | 备选 | `text-embedding-v3`（纯文本，1024 维） |
 | 用途 | 文本向量化（Embedding） |
@@ -176,34 +175,148 @@
 
 | 模式 | 技术实现 | 工具 | 适用场景 | 后端接口 |
 |-----------|---------|------|---------|----|
-| **规则助手** | RAG 检索知识库，基于文档回答 | 1 个（search_knowledge_base） | 退票政策、订票流程、入场规则 | POST /api/chat (chat_type=rag) |
-| **贴心助手** | Function Calling，代码控制工具调用循环 | 8 个业务工具 | 查节目、查票档、下单 | POST /api/chat (chat_type=assistant) |
-| **Agent** | LangGraph ReAct Agent，LLM 自主决策 | 全部 9 个工具 | 不确定用哪个模式时，最智能 | POST /api/agent |
+| **规则助手** | RAG 固定管线，直接调检索函数 | 1 个知识库检索能力（非 tool） | 退票政策、订票流程、入场规则 | POST /api/chat (chat_type=rag) |
+| **贴心助手** | Function Calling，代码控制循环 | 8 个业务工具 | 查节目、查票档、下单 | POST /api/chat (chat_type=assistant) |
+| **Agent** | LangGraph ReAct，LLM 自主决策 | 9 个（8 业务 + 知识库） | 不确定用哪个模式时，最智能 | POST /api/agent |
 | **多 Agent** | 6 节点结构化编排，分工协作 | 按需分配（ticket 8 个 / knowledge 1 个） | 跨领域复杂问题 | POST /api/agent/multi |
 
-### 四种模式的本质区别
+### 规则助手：固定 RAG 管线
 
 ```
-规则助手：    用户 → 查询改写 → BM25+向量检索 → LLM 生成回答（不调工具）
-贴心助手：    用户 → LLM 判断 → 代码控制调工具 → LLM 生成回答（手动循环，最多 5 轮）
-Agent 模式： 用户 → LLM 自主决策 → 自动调工具 → 自动判断停止（ReAct 循环）
-多 Agent：   用户 → 意图分类 → 路由 → 专业子 Agent → 整合回答（6 节点结构化）
+用户问题
+  ↓
+  ↓ [代码：rewrite_query()]
+  ↓
+查询改写（LLM 将模糊问题转为完整查询）
+  ↓
+  ↓ [代码：hybrid_retrieve()]
+  ↓
+BM25 + 向量混合检索 → RRF 融合 → Parent-Child 映射
+  ↓
+  ↓ [代码：format_docs_with_source()]
+  ↓
+格式化为带来源的上下文
+  ↓
+  ↓ [LLM：rag_chain.invoke()]
+  ↓
+LLM 基于文档生成回答
+  ↓
+返回回答 + 参考来源
 ```
+
+**特点**：全程没有 LLM 决策，固定管线执行，最稳定。
+**知识库能力**：直接调用 `rewrite_query()` + `hybrid_retrieve()`，不经过 LangChain tool 机制。
+
+---
+
+### 贴心助手：代码控制的 Function Calling
+
+```
+用户问题
+  ↓
+  ↓ [LLM：self.llm.invoke(messages) ①]
+  ↓
+LLM 分析问题，决定调哪个工具（8 个业务工具可选）
+  ↓
+  ↓ 如果有 tool_calls
+  ↓
+[代码：for tool_call in response.tool_calls]
+  ↓
+  ↓ 执行工具
+  ↓
+[代码：tool_func.invoke(args)]
+  ↓
+  ↓ 将结果加入 messages
+  ↓
+[LLM：self.llm.invoke(messages) ②]
+LLM 看到工具结果，决定是否继续调工具
+  ↓
+  ↓ 循环最多 5 轮（代码控制：for round_idx in range(MAX_TOOL_ROUNDS)）
+  ↓ 如果没有 tool_calls，跳出循环
+  ↓
+[LLM：self.llm.invoke(messages) ③ 最终回答]
+LLM 生成最终回答（手动分块推送模拟流式）
+  ↓
+返回回答
+```
+
+**特点**：LLM 负责选工具和生成回答，代码负责控制循环次数和执行工具。
+**工具列表**：search_program、get_program_detail、get_ticket_info、create_order、query_ticket_status、check_order_status、calculate_price、get_recommendations（共 8 个，**不含 search_knowledge_base**）。
+
+---
+
+### Agent 模式：LangGraph ReAct 循环
+
+```
+用户问题
+  ↓
+[LangGraph create_react_agent]
+  ↓
+  ↓ [LLM：agent 决定调哪个工具（9 个可选）]
+  ↓
+LLM 输出 tool_calls
+  ↓
+  ↓ [框架自动执行工具]
+  ↓
+执行 search_knowledge_base / search_program / ...
+  ↓
+  ↓ 将结果返回给 LLM
+  ↓
+[LLM：agent 决定是否继续调工具]
+  ↓
+  ↓ 循环直到 LLM 没有 tool_calls
+  ↓
+[LLM：生成最终回答]
+  ↓
+返回回答
+```
+
+**特点**：LLM 全权决策（调什么工具、什么时候停），框架控制循环。
+**工具列表**：search_program、get_program_detail、get_ticket_info、create_order、search_knowledge_base、query_ticket_status、check_order_status、calculate_price、get_recommendations（共 9 个，**含 search_knowledge_base**）。
+**与贴心助手的区别**：工具多一个知识库，循环由 LangGraph 框架控制而非代码。
+
+---
+
+### 多 Agent 模式：6 节点结构化编排
+
+```
+用户问题
+  ↓
+[LLM：intent_classifier] 意图分类 → ticket / knowledge / both / chat
+  ↓
+[代码：router] 纯逻辑路由（无 LLM）
+  ├─ ticket    → [LLM：ticket_agent（ReAct 循环，8 个工具）]
+  ├─ knowledge → [LLM：knowledge_agent（ReAct 循环，1 个工具）]
+  ├─ both      → [LLM：ticket_agent] → [LLM：knowledge_agent]		串行执行
+  └─ chat      → [LLM：answer_generator] 直接生成回答
+  ↓
+[answer_generator] 单 Agent 结果直接透传，多 Agent 结果 LLM 整合
+  ↓
+  ↓ 任何节点出错
+  ↓
+[fallback] 返回友好错误提示
+  ↓
+返回回答
+```
+
+**特点**：意图分类和路由分离，子 Agent 各司其职，answer_generator 统一输出。
+**状态字段**：messages、intent、route、current_agent、agent_results、error、final_answer
+
+**串行 vs 并行**：当前 both 意图是串行执行（ticket → knowledge → answer），子 Agent 只有两个，串行延迟可接受。如果未来扩展到 3+ 个子 Agent，可以用 LangGraph 的 Send API 实现并行扇出，多个子 Agent 并行执行后汇聚到 answer_generator 整合。
+
+---
+
+### 核心区别总结
 
 | 维度 | 规则助手 | 贴心助手 | Agent | 多 Agent |
 |------|---------|---------|-------|---------|
-| 工具调用 | ❌ | ✅ 代码控制 | ✅ LLM 自主 | ✅ 按分工 |
-| LLM 自主决策 | ❌ | ❌ | ✅ | ✅ |
-| 查询改写 | ✅ | ❌ | ❌ | ❌ |
-| 可观测性 | 来源展示 | 工具步骤 | 工具步骤 | 节点进度 |
+| LLM 调用次数 | 1 次（生成回答） | 2-5 次（选工具 + 生成） | 2-5 次（选工具 + 生成） | 2-4 次（分类 + 子Agent + 整合） |
+| 工具调用 | ❌ | ✅ 代码执行 | ✅ 框架执行 | ✅ 子 Agent 执行 |
+| 查询改写 | ✅ 显式调用 | ❌ 工具内不做 | ❌ 工具内不做 | ❌ 工具内不做 |
+| 知识库能力 | ✅ 直接调 RAG 管线 | ❌ 无知识库工具 | ✅ 通过 tool | ✅ 专门子 Agent |
+| 循环控制 | 无循环 | 代码 for 循环 | LangGraph ReAct | LangGraph StateGraph |
+| 可观测性 | 来源展示 | 工具步骤 | 工具步骤 | 节点进度 + 工具步骤 |
 | 响应速度 | 最快 | 中等 | 中等 | 最慢 |
-
-### 设计思路
-
-1. **规则助手**：纯 RAG，不调工具，最稳定的问答模式
-2. **贴心助手**：Function Calling，代码控制工具调用循环，可控性强
-3. **Agent 模式**：LangGraph ReAct，LLM 全权决策，最灵活
-4. **多 Agent 模式**：6 节点结构化编排（intent_classifier → router → 子 Agent → answer_generator → fallback），可观测可扩展
 
 ### 多 Agent 架构
 

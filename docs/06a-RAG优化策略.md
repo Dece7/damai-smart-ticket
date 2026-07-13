@@ -1,4 +1,4 @@
-# RAG 优化策略 — 知识点与面试要点
+# RAG 优化策略
 
 > RAG 优化分为**检索优化**和**生成优化**两大类。检索是基础，检索不到正确文档，生成再好也是编造。
 
@@ -23,7 +23,7 @@
 
 ## 一、检索优化策略
 
-### 1. Chunk 切分优化
+### 1. 💥Chunk 切分优化
 
 **问题**：切分质量直接决定检索精度。切太大，语义分散；切太小，上下文断裂。
 
@@ -66,7 +66,7 @@ child_splitter = RecursiveCharacterTextSplitter(
 
 ---
 
-### 2. Embedding 模型升级
+### 2. 💥Embedding 模型升级
 
 **问题**：Embedding 质量决定向量检索的语义理解能力。
 
@@ -96,7 +96,7 @@ class DashScopeMultiModalEmbedding:
 
 ---
 
-### 3. 元数据增强
+### 3. 💥元数据增强
 
 **问题**：chunk 切分后丢失了原始文档的结构信息（标题、章节）。
 
@@ -124,9 +124,18 @@ def _inject_header_context(chunk):
 - BM25 检索时也能匹配到标题关键词
 - 元数据还可以存文件路径、创建时间等，用于过滤
 
+**注入发生在入库时，不是检索时**：
+```
+文档加载 → 标题切分（生成 metadata）→ 注入标题到 page_content → embedding → 存入 ChromaDB
+```
+
+**为什么 metadata 里有了还要注入**：embedding 只编码 page_content，不编码 metadata。BM25 同理，只对 page_content 做分词匹配。如果不注入，embedding 和 BM25 都"看不见"标题。
+
+**会不会引入噪音**：会有一点，但利大于弊。标题提供"主题锚点"，让 embedding 知道这段话在讲什么。实测注入后来源命中率从 56.4% 提升到 100%，利远大于弊。
+
 ---
 
-### 4. 查询改写（Query Rewrite）
+### 4. 💥查询改写（Query Rewrite）
 
 **问题**：用户问题往往简短、模糊、口语化（"咋退"、"退票"），直接检索命中率低。
 
@@ -183,7 +192,7 @@ QUERY_REWRITE_PROMPT = """将用户的简短、模糊问题改写为适合知识
 
 ---
 
-### 7. 混合检索（Hybrid Retrieval）
+### 7. 💥混合检索（Hybrid Retrieval）
 
 **问题**：纯向量检索语义理解强但关键词匹配弱；纯 BM25 关键词匹配强但语义理解弱。
 
@@ -219,7 +228,7 @@ def hybrid_retrieve(query, vectorstore, bm25, chunks, k=5, bm25_weight=0.9):
 
 ---
 
-### 8. Rerank 重排序
+### 8. 💥Rerank 重排序
 
 **问题**：粗排（BM25 + 向量）返回的候选集排序不够精准。
 
@@ -253,9 +262,44 @@ results = ranker.rerank(req)
 
 ---
 
-### 9. Parent-Child 映射
+### 9. 💥Parent-Child 映射
 
 **问题**：小块检索精准但上下文不完整，大块上下文完整但检索不准。
+
+**两阶段机制：**
+
+**阶段一：入库时建立映射关系**
+```
+原始文档 → MarkdownHeaderTextSplitter → Parent 大块（800 字）
+         → RecursiveCharacterTextSplitter → Child 小块（400 字）
+         → 每个 Child 的 metadata 记录 parent_id
+         → Child 存 ChromaDB，Parent 存 pickle
+```
+
+**阶段二：检索时映射回 Parent**
+```
+用户查询 → BM25+向量检索 Child → 读 parent_id → 查 parent_dict → 去重 → 返回 Parent
+```
+
+**通俗示例**：用户问"退票政策是什么"，检索返回 5 个 Child 小块：
+
+```
+[1] "若显示不支持退则不支持退票哦"            ← 来自退票政策
+[2] "若显示条件退则支持有条件退款"            ← 来自退票政策
+[3] "大麦娱乐卡退款后不支持再次购买"          ← 来自退票政策
+[4] "一般演出禁止携带专业相机"               ← 来自入场须知
+[5] "如演出主要艺人发生更换可申请全额退款"     ← 来自演出变更
+```
+
+如果直接给 LLM，回答可能不完整。Parent-Child 映射就是**把碎片化的检索结果恢复成完整的知识块**：
+
+```
+Child [1][2][3] → Parent: 退票政策完整章节（包含所有退票规则）
+Child [4]       → Parent: 入场须知完整章节
+Child [5]       → Parent: 演出变更完整章节
+
+去重后返回 3 个 Parent 大块给 LLM → 回答更完整
+```
 
 **本项目实现**：child 用于检索，命中后映射回 parent 返回给 LLM
 
@@ -271,9 +315,12 @@ def _resolve_parents(child_docs, parent_dict, k):
     return list(seen_parents.values())[:k]
 ```
 
+**存储方式**：Child 存在 ChromaDB（向量数据库），Parent 存在 pickle 字典文件（`data/parent_chunks.pkl`）。当前 130 个 Parent 读到内存才几 KB，字典查 key 是 O(1)，完全够用。生产环境 Parent 量大时可考虑存 SQLite/MySQL。
+
 **面试要点**：
 - Parent-Child 解决的是**检索精度 vs 上下文完整性**的矛盾
-- 实现时要注意 parent_id 的映射关系，多个 child 可能映射到同一个 parent
+- 入库时建立映射关系（Child 记录 parent_id），检索时做映射去重
+- 多个 Child 映射同一 Parent 时只返回一次，避免重复
 - 适合长文档场景；短文档（如本项目的 Q&A）每个 parent 只有 1 个 child，效果与单层相当
 
 ---
@@ -296,7 +343,7 @@ def _resolve_parents(child_docs, parent_dict, k):
 
 ## 二、生成优化策略
 
-### 11. Prompt 优化
+### 11. 💥Prompt 优化
 
 **本项目实现**：RAG 专用 Prompt，约束 LLM 只基于文档回答
 
@@ -316,7 +363,7 @@ SYSTEM_PROMPT_RAG = """你是大麦购票项目的规则助手。请严格根据
 
 ---
 
-### 12. 引用溯源
+### 12. 💥引用溯源
 
 **本项目实现**：回答末尾标注来源文档，前端展示参考来源列表
 
@@ -324,7 +371,7 @@ SYSTEM_PROMPT_RAG = """你是大麦购票项目的规则助手。请严格根据
 def format_docs_with_source(docs):
     parts = []
     for i, doc in enumerate(docs, 1):
-        source = Path(doc.metadata.get("source", "未知文档")).stem
+        source = Path(doc.metadata💥靠的元数据💥.get("source", "未知文档")).stem
         parts.append(f"[文档{i}] 来源：{source}\n{doc.page_content}")
     return "\n\n".join(parts)
 ```

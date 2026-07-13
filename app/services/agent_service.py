@@ -1,4 +1,4 @@
-"""Agent 服务 - 整合 Agent + 会话记忆"""
+﻿"""Agent 服务 - 整合 Agent + 会话记忆"""
 
 import json
 import logging
@@ -9,10 +9,10 @@ logger = logging.getLogger(__name__)
 
 
 class AgentService:
-    async def chat(self, message: str, conversation_id: str | None):
+    async def chat(self, message: str, conversation_id: str | None, user_id: int = None):
         """Agent 对话（带会话记忆）"""
         if not conversation_id:
-            conv = memory_service.create_conversation("agent")
+            conv = memory_service.create_conversation("agent", user_id=user_id)
             conversation_id = str(conv.id)
             yield f'data: {json.dumps({"type": "conversation_id", "content": conversation_id}, ensure_ascii=False)}\n\n'
 
@@ -44,3 +44,4 @@ class AgentService:
 
 
 agent_service = AgentService()
+

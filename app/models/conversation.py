@@ -1,4 +1,4 @@
-"""对话数据模型 - 对应原项目 ChatTypeHistory / ChatHistoryMapper"""
+﻿"""对话数据模型 - 对应原项目 ChatTypeHistory / ChatHistoryMapper"""
 
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON
@@ -11,6 +11,7 @@ class Conversation(Base):
     __tablename__ = "conversations"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, nullable=True, index=True)  # 用户ID，用于用户隔离
     title = Column(String(200), default="新对话")
     chat_type = Column(String(20), default="assistant")  # assistant / rag / agent
     pinned = Column(Integer, default=0)  # 0=未置顶, 1=置顶
@@ -34,3 +35,4 @@ class Message(Base):
     created_at = Column(DateTime, default=datetime.now)
 
     conversation = relationship("Conversation", back_populates="messages")
+

@@ -92,4 +92,35 @@
 | #7549 | 12:14 AM | ✅ | Documentation Table Formatting Correction | ~114 |
 | #7548 | " | 🔵 | damai-smart-ticket Embedding and Document Chunking Architecture | ~583 |
 | #7547 | " | 🔵 | damai-smart-ticket Project Architecture - Four Operating Modes | ~368 |
+
+### Jun 18, 2026
+
+| ID | Time | T | Title | Read |
+|----|------|---|-------|------|
+| #7939 | 7:13 PM | ✅ | Phase 6 interview Q&A updated: CDN question replaced with four-mode frontend question | ~267 |
+| #7938 | " | ✅ | Phase 6 docs updated: three-mode chat design expanded to four-mode architecture | ~424 |
+| #7937 | 7:10 PM | 🔵 | damai-smart-ticket project architecture and technology stack | ~380 |
+| #7924 | 6:17 PM | 🔵 | damai-smart-ticket project tool set and architecture overview from Phase 8 docs | ~344 |
+
+### Jun 19, 2026
+
+| ID | Time | T | Title | Read |
+|----|------|---|-------|------|
+| #7973 | 10:42 PM | 🔵 | damai-smart-ticket Embedding Model and Document Management Strategy | ~391 |
+| #7972 | " | 🔵 | damai-smart-ticket RAG Evaluation Metrics Baseline | ~356 |
+| #7971 | 10:41 PM | 🔵 | damai-smart-ticket RAG Optimization Results and Chunking Strategy | ~329 |
+| #7970 | " | 🔵 | damai-smart-ticket Document Chunking Configuration Details | ~331 |
+| #7969 | " | 🔵 | damai-smart-ticket RAG System Architecture Overview | ~297 |
+| #7950 | 2:02 AM | ✅ | Enhanced astream_events documentation with multi-purpose usage table | ~280 |
+| #7949 | " | 🔵 | damai-smart-ticket Agent streaming designed for frontend visualization | ~214 |
+| #7948 | " | 🔵 | damai-smart-ticket uses LangChain Agent architecture with streaming events | ~249 |
+
+### Jun 20, 2026
+
+| ID | Time | T | Title | Read |
+|----|------|---|-------|------|
+| #7983 | 12:32 AM | ✅ | Refined Parent-Child interview points to align with two-phase mechanism | ~254 |
+| #7982 | 12:31 AM | ✅ | Added two-phase Parent-Child mechanism to RAG optimization docs | ~459 |
+| #7981 | " | 🔵 | damai-smart-ticket RAG chunking documentation confirmed — two-phase architecture | ~365 |
+| #7980 | 12:30 AM | 🔵 | damai-smart-ticket uses Parent-Child chunking strategy for RAG embeddings | ~437 |
 </claude-mem-context>

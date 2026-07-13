@@ -1,4 +1,4 @@
-"""LangGraph ReAct Agent - 对应原项目 Advisor 链编排
+﻿"""LangGraph ReAct Agent - 对应原项目 Advisor 链编排
 
 Agent 自动判断用户意图，选择合适的工具：
 - 查节目/下单 → Function Calling 工具
@@ -15,15 +15,15 @@ from app.core.config import get_settings
 from app.core.prompts import SYSTEM_PROMPT_ASSISTANT
 from app.chains.tools import (
     search_program, get_program_detail, get_ticket_info,
-    create_order, search_knowledge_base,
-    query_ticket_status, check_order_status, calculate_price, get_recommendations,
+    create_order, create_order_guide, search_knowledge_base,
+    query_ticket_status, check_order_status, get_order_list, calculate_price, get_recommendations,
 )
 
 logger = logging.getLogger(__name__)
 
 ALL_TOOLS = [
-    search_program, get_program_detail, get_ticket_info, create_order,
-    search_knowledge_base, query_ticket_status, check_order_status,
+    search_program, get_program_detail, get_ticket_info, create_order_guide,
+    search_knowledge_base, query_ticket_status, check_order_status, get_order_list,
     calculate_price, get_recommendations,
 ]
 TOOLS_MAP = {t.name: t for t in ALL_TOOLS}
@@ -152,3 +152,5 @@ async def run_agent(message: str, history: list[dict] | None = None):
         yield f'data: {json.dumps({"type": "usage", "content": total_usage}, ensure_ascii=False)}\n\n'
 
     yield "data: [DONE]\n\n"
+
+

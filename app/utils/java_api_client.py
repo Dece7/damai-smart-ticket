@@ -1,4 +1,4 @@
-"""Java 后端 API 客户端
+﻿"""Java 后端 API 客户端
 
 当 java_api_enabled=True 时，调用真实 Java API；
 否则返回 None，工具函数回退到模拟数据。
@@ -11,6 +11,7 @@
 import logging
 import requests
 from app.core.config import get_settings
+from app.utils.token_util import get_user_id_from_token
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,9 @@ class JavaAPIClient:
         self.order_url = settings.java_api_order_url.rstrip("/")
         self.timeout = settings.java_api_timeout
         self._token = None
-
+        self._code = None  # 渠道编码
+        self._user_id = None  # 用户ID
+        
         # MySQL 直连配置
         self.mysql_enabled = settings.java_mysql_enabled
         self.mysql_config = {
@@ -38,6 +41,25 @@ class JavaAPIClient:
             "order_db": settings.java_mysql_order_db,
         }
         self._mysql_conn = None
+    
+    def set_token(self, token):
+        """设置用户 Token"""
+        self._token = token
+        # 从Token中解析用户ID
+        if token:
+            self._user_id = get_user_id_from_token(token)
+            logger.info(f"从Token解析到用户ID: {self._user_id}")
+        else:
+            self._user_id = None
+        return self._user_id
+    def set_code(self, code):
+        """设置渠道编码"""
+        self._code = code
+
+    def get_user_id(self):
+        """获取用户ID"""
+        return self._user_id
+
 
     def _request(self, method: str, path: str, data: dict = None, base_url: str = None) -> dict | None:
         """发送请求到 Java API"""
@@ -48,6 +70,8 @@ class JavaAPIClient:
         headers = {"Content-Type": "application/json"}
         if self._token:
             headers["Authorization"] = f"Bearer {self._token}"
+        if self._code:
+            headers["code"] = self._code
 
         try:
             resp = requests.request(
@@ -244,13 +268,13 @@ class JavaAPIClient:
                 return result
             logger.info("MySQL 直连无结果，尝试 HTTP API")
 
-        # 回退到 HTTP API
-        data = {"content": content, "pageNumber": page, "pageSize": size, "timeType": 1}
+        # 回退到 HTTP API（使用 /program/page 代替 /program/search，因为 page 有数据库回退机制）
+        data = {"content": content, "pageNumber": page, "pageSize": size, "timeType": 0}
         if area_id:
             data["areaId"] = area_id
         if category_id:
             data["programCategoryId"] = category_id
-        return self._request("POST", "/program/search", data, base_url=self.program_url)
+        return self._request("POST", "/program/page", data, base_url=self.program_url)
 
     def get_program_detail(self, program_id: int) -> dict | None:
         """获取节目详情（优先 MySQL 直连，其次 HTTP API）"""
@@ -269,9 +293,17 @@ class JavaAPIClient:
         data = self._request("POST", "/program/home/list", {"current": 1, "size": 10}, base_url=self.program_url)
         return data if data else None
 
-    def get_recommend_list(self) -> list | None:
+    def get_recommend_list(self, area_id: int = None, program_id: int = None) -> list | None:
         """获取推荐节目列表"""
-        data = self._request("POST", "/program/recommend/list", {"current": 1, "size": 5}, base_url=self.program_url)
+        params = {}
+        if area_id:
+            params["areaId"] = area_id
+        if program_id:
+            params["programId"] = program_id
+        # 如果没有参数，使用默认 areaId=2 (北京)
+        if not params:
+            params["areaId"] = 2
+        data = self._request("POST", "/program/recommend/list", params, base_url=self.program_url)
         return data if data else None
 
     # ==================== 票档相关 ====================
@@ -305,11 +337,11 @@ class JavaAPIClient:
         """查询订单详情"""
         return self._request("POST", "/order/get", {"orderNumber": order_number}, base_url=self.order_url)
 
-    def get_order_list(self, mobile: str = "", page: int = 1, size: int = 10) -> dict | None:
+    def get_order_list(self, user_id: int = None, mobile: str = "", page: int = 1, size: int = 10) -> dict | None:
         """查询订单列表"""
         data = {"current": page, "size": size}
-        if mobile:
-            data["mobile"] = mobile
+        if user_id:
+            data["userId"] = user_id
         return self._request("POST", "/order/select/list", data, base_url=self.order_url)
 
     # ==================== 区域相关 ====================
@@ -327,3 +359,13 @@ class JavaAPIClient:
 
 # 全局单例
 java_api = JavaAPIClient()
+
+
+
+
+
+
+
+
+
+

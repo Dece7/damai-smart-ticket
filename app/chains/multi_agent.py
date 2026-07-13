@@ -494,6 +494,8 @@ async def run_multi_agent(message: str, history: list[dict] | None = None):
                                             excerpt = lines[j].strip()[:100]
                                             break
                                     sources.append({"doc": src, "excerpt": excerpt})
+                                    if len(sources) >= 3:
+                                        break
                     except Exception as e:
                         logger.warning(f"提取引用来源失败: {e}")
 
@@ -502,7 +504,7 @@ async def run_multi_agent(message: str, history: list[dict] | None = None):
                         output = json.dumps(output, ensure_ascii=False, default=str)
                     except Exception:
                         output = str(output)
-                result_preview = output[:200] + "..." if len(output) > 200 else output
+                result_preview = output[:100] + "..." if len(output) > 100 else output
                 yield f'data: {json.dumps({"type": "step", "step": step_num, "action": "tool_end", "tool": tool_name, "content": f"工具返回: {result_preview}"}, ensure_ascii=False)}\n\n'
 
     except Exception as e:

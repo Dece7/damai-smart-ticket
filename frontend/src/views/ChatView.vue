@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, nextTick, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -23,36 +23,55 @@ const isMobile = ref(false)
 const showAllHints = ref(false)
 
 // 模式标签
-const modeLabels: Record<ChatMode, string> = {
-  agent: 'Agent 智能模式',
-  multi: '多 Agent 协作',
-  assistant: '贴心助手',
-  rag: '规则助手',
-}
+  const modeLabels: Record<ChatMode, string> = {
+    agent: 'Agent 智能模式',
+    multi: '多 Agent 协作',
+    assistant: '贴心助手',
+    rag: '规则助手',
+    'router-skill': '智能助手',
+  }
+
 
 const modeOptions: { value: ChatMode; label: string }[] = [
-  { value: 'agent', label: 'Agent' },
-  { value: 'multi', label: '多Agent' },
-  { value: 'assistant', label: '贴心助手' },
-  { value: 'rag', label: '规则助手' },
-]
+    { value: 'agent', label: 'Agent' },
+    { value: 'multi', label: '多Agent' },
+    { value: 'assistant', label: '贴心助手' },
+    { value: 'rag', label: '规则助手' },
+    { value: 'router-skill', label: '智能助手' },
+  ]
+
 
 // 快捷问题
-const allHints = [
-  { icon: ' ', text: '北京有什么演唱会' },
-  { icon: ' ', text: '帮我买周杰伦演唱会的票' },
-  { icon: ' ', text: '怎么退票？退票后多久退款？' },
-  { icon: ' ', text: '怎么选座位？两个人可以选相邻的吗？' },
-  { icon: ' ', text: '支持哪些支付方式？可以开发票吗？' },
-  { icon: ' ', text: '会员有什么等级和折扣？积分怎么获得？' },
-  { icon: ' ', text: '有什么优惠活动？早鸟票是什么？' },
-  { icon: ' ️', text: '北京和上海有哪些演出场馆？' },
-  { icon: ' ', text: '入场需要带什么证件？可以带相机吗？' },
-  { icon: '♿', text: '轮椅用户怎么买票？有无障碍设施吗？' },
-  { icon: ' ', text: '儿童需要买票吗？婴儿可以带入场吗？' },
-  { icon: ' ', text: '演出取消或延期了怎么办？' },
-  { icon: ' ', text: '电子票怎么使用？票丢了怎么办？' },
-]
+  // 快捷问题
+  const allHints = [
+    // 购票相关
+    { icon: ' ', text: '帮我买于文文演唱会的票' },
+    { icon: ' ', text: '帮我买周华健演唱会的票' },
+    { icon: ' ', text: '有什么好看的演出推荐？' },
+    { icon: ' ', text: '北京有什么演唱会' },
+    { icon: ' ', text: '上海有什么话剧' },
+    // 订单相关
+    { icon: ' ', text: '我的订单有哪些？' },
+    { icon: ' ', text: '查看我的订单状态' },
+    // 退票规则
+    { icon: ' ', text: '怎么退票？退票后多久退款？' },
+    { icon: ' ', text: '演出取消了怎么办？' },
+    { icon: ' ', text: '演出延期可以退票吗？' },
+    // 购票规则
+    { icon: ' ', text: '怎么选座位？两个人可以选相邻的吗？' },
+    { icon: ' ', text: '支持哪些支付方式？可以开发票吗？' },
+    { icon: ' ', text: '儿童需要买票吗？婴儿可以带入场吗？' },
+    // 会员相关
+    { icon: ' ', text: '会员有什么等级和折扣？' },
+    { icon: ' ', text: '有什么优惠活动？早鸟票是什么？' },
+    // 入场相关
+    { icon: ' ', text: '入场需要带什么证件？可以带相机吗？' },
+    { icon: ' ', text: '电子票怎么使用？票丢了怎么办？' },
+    // 场馆相关
+    { icon: ' ️', text: '北京有哪些演出场馆？' },
+    { icon: '♿', text: '轮椅用户怎么买票？有无障碍设施吗？' },
+  ]
+
 
 const hints = computed(() =>
   showAllHints.value ? allHints : allHints.slice(0, 6),
@@ -178,6 +197,20 @@ watch(
 )
 
 onMounted(() => {
+  // 从URL参数中获取Token
+  const urlParams = new URLSearchParams(window.location.search)
+  const token = urlParams.get(`token`)
+  
+  if (token) {
+    localStorage.setItem(`damai_token`, token)
+    console.log(`Token已保存`)
+    
+    // 清除URL中的token参数（避免刷新时重复处理）
+    const url = new URL(window.location.href)
+    url.searchParams.delete(`token`)
+    window.history.replaceState({}, ``, url.toString())
+  }
+
   store.loadConversations()
   checkMobile()
   window.addEventListener('resize', checkMobile)
@@ -931,3 +964,7 @@ onUnmounted(() => {
   }
 }
 </style>
+
+
+
+

@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -10,6 +10,7 @@ from app.api.agent import router as agent_router
 from app.api.admin import router as admin_router
 from app.api.knowledge import router as knowledge_router
 from app.api.mcp import router as mcp_router
+from app.api.router_skill import router as router_skill_router
 from app.core.database import init_db
 
 STATIC_DIR = Path(__file__).parent.parent / "static"
@@ -30,6 +31,7 @@ app.include_router(agent_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
 app.include_router(knowledge_router, prefix="/api")
 app.include_router(mcp_router, prefix="/api")
+app.include_router(router_skill_router, prefix="/api")
 
 
 @app.on_event("startup")
@@ -54,3 +56,4 @@ async def spa_catchall(request: Request, full_path: str):
     if full_path and file_path.is_file():
         return FileResponse(file_path)
     return FileResponse(STATIC_DIR / "index.html")
+

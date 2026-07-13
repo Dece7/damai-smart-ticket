@@ -1,4 +1,4 @@
-"""会话记忆服务 - 对应原项目 ChatTypeHistoryAdvisor + MessageChatMemoryAdvisor"""
+﻿"""会话记忆服务 - 对应原项目 ChatTypeHistoryAdvisor + MessageChatMemoryAdvisor"""
 
 import logging
 from sqlalchemy import desc, case
@@ -9,11 +9,11 @@ logger = logging.getLogger(__name__)
 
 
 class MemoryService:
-    def create_conversation(self, chat_type: str = "assistant") -> Conversation:
+    def create_conversation(self, chat_type: str = "assistant", user_id: int = None) -> Conversation:
         """创建新对话"""
         db = SessionLocal()
         try:
-            conv = Conversation(chat_type=chat_type)
+            conv = Conversation(chat_type=chat_type, user_id=user_id)
             db.add(conv)
             db.commit()
             db.refresh(conv)
@@ -53,15 +53,18 @@ class MemoryService:
         finally:
             db.close()
 
-    def get_conversations(self) -> list[dict]:
-        """获取所有对话列表（置顶优先）"""
+    def get_conversations(self, user_id: int = None) -> list[dict]:
+        """获取对话列表（置顶优先），支持用户过滤"""
         db = SessionLocal()
         try:
-            convs = (
-                db.query(Conversation)
-                .order_by(desc(Conversation.pinned), desc(Conversation.updated_at))
-                .all()
-            )
+            query = db.query(Conversation)
+            # 如果提供了user_id，只返回该用户的对话
+            if user_id is not None:
+                query = query.filter(Conversation.user_id == user_id)
+            else:
+                # 如果没有提供user_id，只返回没有user_id的对话（兼容旧数据）
+                query = query.filter(Conversation.user_id.is_(None))
+            convs = query.order_by(desc(Conversation.pinned), desc(Conversation.updated_at)).all()
             return [
                 {
                     "id": c.id,
@@ -112,3 +115,5 @@ class MemoryService:
 
 
 memory_service = MemoryService()
+
+

@@ -25,7 +25,7 @@ export interface Source {
 
 export interface Step {
   step: number
-  action: 'reasoning' | 'tool_start' | 'tool_end'
+  action: 'reasoning' | 'tool_start' | 'tool_end' | 'node_enter'
   content: string
   tool?: string
 }

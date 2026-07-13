@@ -221,12 +221,17 @@ def hybrid_retrieve(query: str, vectorstore, bm25, chunks, k: int = 5, bm25_weig
     return coarse_results[:k]
 
 
-def format_docs_with_source(docs) -> str:
-    """将检索到的文档格式化为带来源的字符串"""
+def format_docs_with_source(docs, max_docs: int = 3) -> str:
+    """将检索到的文档格式化为带来源的字符串，同一来源去重，最多 max_docs 个"""
+    seen_sources = set()
     parts = []
-    for i, doc in enumerate(docs, 1):
+    for doc in docs:
         source = Path(doc.metadata.get("source", "未知文档")).stem
-        parts.append(f"[文档{i}] 来源：{source}\n{doc.page_content}")
+        if source not in seen_sources:
+            seen_sources.add(source)
+            parts.append(f"[文档{len(parts)+1}] 来源：{source}\n{doc.page_content}")
+        if len(parts) >= max_docs:
+            break
     return "\n\n".join(parts)
 
 

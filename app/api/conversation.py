@@ -1,8 +1,9 @@
-"""对话管理接口"""
+﻿"""对话管理接口"""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from app.services.memory_service import memory_service
+from app.utils.token_util import get_user_id_from_token
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
 from app.core.config import get_settings
@@ -11,9 +12,30 @@ router = APIRouter(prefix="/conversations", tags=["对话管理"])
 
 
 @router.get("")
-async def list_conversations():
-    """获取对话列表"""
-    return memory_service.get_conversations()
+async def list_conversations(request: Request):
+    """获取对话列表（只返回当前用户的对话）"""
+    # 从请求头获取Token
+    token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    
+    # 验证Token（必须登录才能查看对话列表）
+    if not token:
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "请先登录后再查看对话列表"},
+        )
+    
+    # 解析用户ID
+    user_id = get_user_id_from_token(token)
+    
+    # 验证用户ID是否有效
+    if not user_id:
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Token无效，请重新登录"},
+        )
+    
+    # 获取当前用户的对话
+    return memory_service.get_conversations(user_id=user_id)
 
 
 @router.get("/{conversation_id}/messages")
@@ -71,3 +93,5 @@ async def generate_title(conversation_id: int):
         return {"title": title}
     except Exception:
         return {"title": first_msg[:15]}
+
+

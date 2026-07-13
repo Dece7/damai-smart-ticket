@@ -1,4 +1,4 @@
-"""工具定义 - 支持模拟数据和真实 Java API 两种模式
+﻿"""工具定义 - 支持模拟数据和真实 Java API 两种模式
 
 当 java_api_enabled=True 时，调用真实 Java 后端 API；
 否则使用本地模拟数据（demo 模式）。
@@ -26,15 +26,22 @@ def search_knowledge_base(query: str) -> str:
         query: 搜索关键词，如"退票"、"订票"、"入场"
     """
     from pathlib import Path
-    from app.pipelines.rag_pipeline import get_hybrid_retriever, rewrite_query
-    rewritten = rewrite_query(query)
+    from app.pipelines.rag_pipeline import get_hybrid_retriever
+    # 不做查询改写，LLM 调用工具时的 query 已经足够精准
     hybrid_retrieve = get_hybrid_retriever(use_reranker=False)
-    docs = hybrid_retrieve(rewritten, original_query=query)
+    docs = hybrid_retrieve(query, original_query=query)
 
+    # 同一来源只保留最相关的 1 个，最多返回 3 个不同来源
+    seen_sources = set()
     parts = []
     for doc in docs:
         source = Path(doc.metadata.get("source", "")).stem
-        parts.append(f"[来源：{source}]\n{doc.page_content}")
+        if source not in seen_sources:
+            seen_sources.add(source)
+            parts.append(f"[来源：{source}]\n{doc.page_content}")
+        if len(parts) >= 3:
+            break
+
     return "\n\n---\n\n".join(parts)
 
 
@@ -112,6 +119,45 @@ def get_ticket_info(program_id: int) -> list[dict]:
     return TICKET_CATEGORIES.get(program_id, [])
 
 
+
+@tool
+def create_order_guide(program_id: int) -> dict:
+    """当用户想要购买节目票时使用此工具，直接返回购票链接。
+    
+    此工具会查询节目信息和票档信息，然后生成购票链接，用户点击链接即可跳转到购票页面。
+
+    Args:
+        program_id: 节目ID
+    """
+    # 查询节目详情
+    program = None
+    if java_api.enabled:
+        program = java_api.get_program_detail(program_id)
+    
+    if not program:
+        return {"error": "未找到该节目信息"}
+    
+    # 查询票档信息
+    tickets = []
+    if java_api.enabled:
+        tickets = java_api.get_ticket_categories(program_id) or []
+    
+    # 生成购票链接
+    base_url = "http://localhost:5173"
+    buy_url = f"{base_url}/contentDetail/index/{program_id}"
+    
+    # 构建简洁的引导信息
+    result = {
+        "type": "buy_guide",
+        "program_title": program.get("title", ""),
+        "show_time": program.get("showTime", ""),
+        "place": program.get("place", ""),
+        "price_range": f"¥{tickets[0].get('price', '0')}起" if tickets else "价格待定",
+        "buy_url": buy_url,
+        "ticket_count": len(tickets),
+    }
+    
+    return result
 @tool
 def create_order(program_id: int, ticket_price: float, ticket_count: int, mobile: str) -> dict:
     """为用户生成购买节目的订单。需要先查询节目和票档信息后再调用。
@@ -276,6 +322,37 @@ def check_order_status(order_number: str) -> dict:
 
 
 @tool
+def get_order_list(user_id: int = None, page: int = 1, size: int = 10) -> dict:
+    """查询用户的订单列表。当用户询问"我有哪些订单"、"查看我的订单"时使用此工具。
+
+    Args:
+        user_id: 用户ID（可选，如果不提供则自动使用当前登录用户的ID）
+        page: 页码，默认1
+        size: 每页数量，默认10
+    """
+    # 如果没有提供user_id，尝试从Java API客户端获取
+    if not user_id and java_api.enabled:
+        user_id = java_api.get_user_id()
+        if user_id:
+            logger.info(f"自动使用当前用户ID: {user_id}")
+    
+    # 优先使用 Java API
+    if java_api.enabled:
+        result = java_api.get_order_list(user_id=user_id, page=page, size=size)
+        if result:
+            return result
+        logger.info("Java API 无结果，回退到模拟数据")
+
+    # 回退到模拟数据
+    _, _, _, _, ORDERS, *_ = _fallback_mock()
+    order_list = list(ORDERS.values())
+    return {
+        "total": len(order_list),
+        "list": order_list
+    }
+
+
+@tool
 def calculate_price(program_id: int, ticket_price: float, ticket_count: int, mobile: str = "") -> dict:
     """计算票价总价，支持会员折扣。在用户确认购买前调用此工具预估费用。
 
@@ -371,3 +448,11 @@ def get_recommendations(city: str = "", category: str = "", budget: float = 0) -
         })
 
     return recommendations
+
+
+
+
+
+
+
+

@@ -1,7 +1,8 @@
-from fastapi import APIRouter
+﻿from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field
 from app.services.chat_service import ChatService
+from app.utils.token_util import get_user_id_from_token
 from app.core.security import check_injection, sanitize_input
 
 router = APIRouter(prefix="/chat", tags=["对话"])
@@ -16,7 +17,7 @@ class ChatRequest(BaseModel):
 
 
 @router.post("")
-async def chat(request: ChatRequest):
+async def chat(request: ChatRequest, req: Request):
     """流式对话接口（SSE）
 
     - chat_type=assistant: 贴心助手（Function Calling）
@@ -29,11 +30,32 @@ async def chat(request: ChatRequest):
             status_code=400,
             content={"detail": f"输入被拒绝：{reason}"},
         )
+    
+    # 从请求头获取Token
+    token = req.headers.get("Authorization", "").replace("Bearer ", "")
+    
+    # 验证Token（必须登录才能使用）
+    if not token:
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "请先登录后再使用AI客服"},
+        )
+    
+    # 解析用户ID
+    user_id = get_user_id_from_token(token)
+    
+    # 验证用户ID是否有效
+    if not user_id:
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Token无效，请重新登录"},
+        )
 
     generator = chat_service.chat(
         message=message,
         conversation_id=request.conversation_id,
         chat_type=request.chat_type,
+        user_id=user_id,
     )
 
     return StreamingResponse(
@@ -45,3 +67,5 @@ async def chat(request: ChatRequest):
             "X-Accel-Buffering": "no",
         },
     )
+
+

@@ -1,22 +1,24 @@
-# Embedding 与向量数据库构建 — 知识点与面试要点
+# Embedding 与向量数据库构建
 
-> 向量数据库构建八步：文档采集 → 文档解析 → 文本清洗 → Chunking → Embedding → 元数据绑定 → 写入向量数据库 → 构建索引
+> 向量数据库构建八步：
+>
+> 文档采集  →  文档解析  →  文本清洗  →  Chunking  →  Embedding  →  元数据绑定  →  写入向量数据库  →  构建索引
 
 ---
 
 ## 全景图
 
 ```
-文档采集  → 文档解析  →  文本清洗  → Chunking → Embedding → 元数据绑定 → 写入向量库 → 构建索引
-   ↓          ↓           ↓         ↓          ↓           ↓           ↓          ↓
- .md/.pdf   提取文本    去噪去重     分块       向量化      绑定属性      ChromaDB    HNSW
- .docx      结构化      格式标准化   重叠       维度选择    来源/分类     持久化       IVF/PQ
- .html      表格/图片   语言检测     标题感知    模型选择    权限/版本     批量写入     参数调优
+文档采集   →   文档解析   →   文本清洗   →  Chunking   →   Embedding   →   元数据绑定   →   写入向量库   →   构建索引
+   ↓             ↓            ↓             ↓              ↓               ↓              ↓             ↓
+.md/.pdf      提取文本       去噪去重       分块            向量化          绑定属性         ChromaDB       HNSW
+.docx         结构化         格式标准化     重叠            维度选择        来源/分类        持久化          IVF/PQ
+.html         表格/图片      语言检测       标题感知        模型选择         权限/版本        批量写入        参数调优
 ```
 
 ---
 
-## 一、文档采集
+## 一、💥文档采集
 
 ### 做什么
 
@@ -44,7 +46,7 @@
 
 ---
 
-## 二、文档解析
+## 二、💥文档解析
 
 ### 做什么
 
@@ -79,7 +81,7 @@ loader = DirectoryLoader(
 
 ---
 
-## 三、文本清洗
+## 三、💥文本清洗
 
 ### 做什么
 
@@ -108,7 +110,7 @@ loader = DirectoryLoader(
 
 ---
 
-## 四、Chunking（文本切分）
+## 四、💥Chunking（文本切分）
 
 ### 做什么
 
@@ -163,7 +165,7 @@ child_splitter = RecursiveCharacterTextSplitter(
 
 ---
 
-## 五、Embedding（向量化）
+## 五、💥Embedding（向量化）
 
 ### 做什么
 
@@ -229,7 +231,7 @@ class DashScopeMultiModalEmbedding:
 
 ---
 
-## 六、元数据绑定（Metadata）
+## 六、💥元数据绑定（Metadata）
 
 ### 做什么
 
@@ -272,7 +274,7 @@ class DashScopeMultiModalEmbedding:
 
 ---
 
-## 七、写入向量数据库
+## 七、💥写入向量数据库
 
 ### 做什么
 
@@ -282,8 +284,8 @@ class DashScopeMultiModalEmbedding:
 
 | 数据库 | 类型 | 特点 | 适用场景 |
 |--------|------|------|---------|
-| ChromaDB | 嵌入式 | 轻量、Python 原生 | 本项目 ✅，Demo/小规模 |
-| Milvus | 分布式 | 高性能、可扩展 | 生产级大规模 |
+| **ChromaDB** | 嵌入式 | 轻量、Python 原生 | 本项目 ✅，Demo/小规模 |
+| **Milvus** | 分布式 | 高性能、可扩展 | 生产级大规模 |
 | Pinecone | 云托管 | 免运维、按量付费 | 不想自建 |
 | Weaviate | 自托管 | 支持多模态 | 多模态检索 |
 | Qdrant | 自托管 | Rust 实现、高性能 | 高性能需求 |
@@ -347,7 +349,7 @@ vectorstore = Chroma.from_documents(
 
 ---
 
-## 八、构建索引（向量数据库不只是存数据）
+## 八、💥构建索引（向量数据库不只是存数据）
 
 ### 为什么需要索引
 

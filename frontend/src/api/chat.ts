@@ -1,6 +1,6 @@
-import type { Source, Step, TokenUsage } from './conversation'
+﻿import type { Source, Step, TokenUsage } from './conversation'
 
-export type ChatMode = 'agent' | 'multi' | 'assistant' | 'rag'
+export type ChatMode = 'agent' | 'multi' | 'assistant' | 'rag' | 'router-skill'
 
 export interface StreamCallbacks {
   onConversationId?: (id: number) => void
@@ -24,6 +24,7 @@ export async function sendMessage(
   let url: string
   if (mode === 'agent') url = '/api/agent'
   else if (mode === 'multi') url = '/api/agent/multi'
+  else if (mode === 'router-skill') url = '/api/router-skill'
   else url = '/api/chat'
   const body: Record<string, unknown> = {
     message,
@@ -33,9 +34,18 @@ export async function sendMessage(
     body.chat_type = mode
   }
 
+  // 获取Token
+  const token = localStorage.getItem('damai_token')
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
   const resp = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(body),
   })
 
@@ -87,3 +97,5 @@ export async function sendMessage(
 
   callbacks.onDone?.()
 }
+
+

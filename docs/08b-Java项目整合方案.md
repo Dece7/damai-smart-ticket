@@ -1,4 +1,4 @@
-# Java 项目整合方案 — 面试要点
+# Java 项目整合方案
 
 > Python AI 项目与 Java 微服务票务系统打通，实现真实业务数据联动。
 
@@ -77,6 +77,6 @@ def search_program(city, category, ...):
     return mock_data
 ```
 
-## 面试话术
+## 面试话术💥
 
 > "Python AI 项目通过两种方式整合 Java 后端：HTTP API 调用微服务 + MySQL 直连查询数据库。MySQL 直连是为了绕过 ES 数据不完整的问题。工具函数支持双模式——Java API 可用时调用真实接口，不可用时自动回退到模拟数据，保证系统始终可用。通过 MCP 协议封装，第三方客户端也能即插即用调用 Java 服务能力。"

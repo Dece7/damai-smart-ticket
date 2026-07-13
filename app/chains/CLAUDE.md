@@ -40,4 +40,10 @@
 | #7504 | 10:24 PM | 🔵 | damai-smart-ticket is "麦小蜜" Smart Customer Service for Damai Ticketing Platform | ~329 |
 | #7503 | 10:23 PM | 🔵 | Intent Classification Node Routes Queries to Ticket or Knowledge Agents | ~294 |
 | #7502 | " | 🔵 | damai-smart-ticket Multi-Agent Architecture with ReAct Pattern | ~304 |
+
+### Jun 17, 2026
+
+| ID | Time | T | Title | Read |
+|----|------|---|-------|------|
+| #7747 | 1:50 AM | 🔵 | Two-Step LLM Tool Calling Works Manually but Fails in chat_service Loop | ~367 |
 </claude-mem-context>
