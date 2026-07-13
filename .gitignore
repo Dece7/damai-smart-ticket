@@ -46,3 +46,13 @@ frontend/dist/
 # OS
 .DS_Store
 Thumbs.db
+# Frontend build artifacts
+static/
+
+# Runtime data
+data/
+chroma_db/
+models/
+
+# Temporary files
+*.stackdump
